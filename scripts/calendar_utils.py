@@ -1,6 +1,10 @@
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
+
+
+TIMEZONE_BR = ZoneInfo("America/Sao_Paulo")
 
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
@@ -25,7 +29,8 @@ def horario_disponivel(calendar_id, data_hora_inicio, servico):
     if not duracao:
         return False
 
-    inicio = data_hora_inicio.replace(tzinfo=timezone.utc)
+    inicio = data_hora_inicio.replace(tzinfo=TIMEZONE_BR)
+
 
     fim = inicio + timedelta(hours=duracao)
 
