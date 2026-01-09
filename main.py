@@ -3,6 +3,9 @@ from dotenv import load_dotenv
 from supabase import create_client
 from fastapi import FastAPI
 from pydantic import BaseModel
+from datetime import datetime
+from scripts.calendar_utils import horario_disponivel
+
 
 load_dotenv()
 
@@ -11,6 +14,10 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
 supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+class AgendamentoRequest(BaseModel):
+    servico: str
+    data: str   # YYYY-MM-DD
+    hora: str   # HH:MM
 
 class MensagemWhatsApp(BaseModel):
     telefone: str
@@ -73,5 +80,27 @@ def receber_mensagem(dados: MensagemWhatsApp):
         "telefone": dados.telefone,
         "resposta": resposta
     }
+
+@app.post("/agendar")
+def agendar(request: AgendamentoRequest):
+    try:
+        data_hora = datetime.strptime(
+            f"{request.data} {request.hora}",
+            "%Y-%m-%d %H:%M"
+        )
+    except ValueError:
+        return {"erro": "Data ou hora em formato inválido"}
+
+    disponivel = horario_disponivel(
+        calendar_id="yamyokai@gmail.com",
+        data_hora_inicio=data_hora,
+        servico=request.servico
+    )
+
+    if not disponivel:
+        return {"status": "indisponivel"}
+
+    return {"status": "disponivel"}
+
 
 
