@@ -90,20 +90,20 @@ def agendar(request: AgendamentoRequest):
         servico=request.servico
     )
     endereco = {
-    "rua": "Rua Exemplo",
-    "numero": "123",
-    "bairro": "Centro",
-    "cidade": "São Paulo",
-    "cep": "00000-000",
+        "rua": "Rua Exemplo",
+        "numero": "123",
+        "bairro": "Centro",
+        "cidade": "São Paulo",
+        "cep": "00000-000",
 }
 
     salvar_agendamento(
-    nome_cliente="Cliente WhatsApp",
-    telefone="000000000",
-    servico=request.servico,
-    data_hora=data_hora,
-    endereco=endereco,
-    calendar_event_id=evento.get("id")
+        nome_cliente="Cliente WhatsApp",
+        telefone="000000000",
+        servico=request.servico,
+        data_hora=data_hora,
+        endereco=endereco,
+        calendar_event_id=evento.get("id")
 )
 
 
