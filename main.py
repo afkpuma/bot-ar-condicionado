@@ -4,7 +4,8 @@ from supabase import create_client
 from fastapi import FastAPI
 from pydantic import BaseModel
 from datetime import datetime
-from scripts.calendar_utils import horario_disponivel
+from scripts.calendar_utils import horario_disponivel, criar_evento
+
 
 
 load_dotenv()
@@ -100,7 +101,18 @@ def agendar(request: AgendamentoRequest):
     if not disponivel:
         return {"status": "indisponivel"}
 
-    return {"status": "disponivel"}
+    evento = criar_evento(
+        calendar_id="yamyokai@gmail.com",
+        data_hora_inicio=data_hora,
+        servico=request.servico
+    )
+
+    return {
+        "status": "confirmado",
+        "evento_id": evento.get("id"),
+        "link": evento.get("htmlLink"),
+    }
+
 
 
 

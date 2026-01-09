@@ -42,3 +42,32 @@ def horario_disponivel(calendar_id, data_hora_inicio, servico):
     ).execute()
 
     return len(eventos.get("items", [])) == 0
+
+def criar_evento(calendar_id, data_hora_inicio, servico):
+    duracao = DURACAO_SERVICO.get(servico)
+    if not duracao:
+        return None
+
+    inicio = data_hora_inicio.replace(tzinfo=TIMEZONE_BR)
+    fim = inicio + timedelta(hours=duracao)
+
+    evento = {
+        "summary": f"{servico.capitalize()} - Ar Condicionado",
+        "description": f"Serviço de {servico} agendado automaticamente pelo bot",
+        "start": {
+            "dateTime": inicio.strftime("%Y-%m-%dT%H:%M:%S"),
+            "timeZone": "America/Sao_Paulo",
+        },
+        "end": {
+            "dateTime": fim.strftime("%Y-%m-%dT%H:%M:%S"),
+            "timeZone": "America/Sao_Paulo",
+        },
+    }
+
+    evento_criado = service.events().insert(
+        calendarId=calendar_id,
+        body=evento
+    ).execute()
+
+    return evento_criado
+
