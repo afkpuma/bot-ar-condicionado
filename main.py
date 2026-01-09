@@ -29,7 +29,7 @@ def receber_mensagem(dados: MensagemWhatsApp):
             "Qual dia e horário você prefere?"
         )
 
-    elif "manutenção" in texto:
+    elif "manuten" in texto:
         resposta = (
             "Entendido 👍\n"
             "Para *Manutenção*, realizamos uma visita técnica para avaliação.\n"
