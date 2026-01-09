@@ -1,19 +1,8 @@
-import os
-from dotenv import load_dotenv
-from supabase import create_client
 from fastapi import FastAPI
 from pydantic import BaseModel
 from datetime import datetime
 from scripts.calendar_utils import horario_disponivel, criar_evento
-
-
-
-load_dotenv()
-
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
-
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+from services.agendamentos_service import salvar_agendamento
 
 class AgendamentoRequest(BaseModel):
     servico: str
@@ -69,13 +58,7 @@ def receber_mensagem(dados: MensagemWhatsApp):
             "Qual serviço você deseja?"
         )
 
-    if servico:
-        supabase.table("atendimentos").insert({
-            "telefone": dados.telefone,
-            "servico": servico,
-            "mensagem": dados.mensagem,
-            "status": "em_atendimento"
-        }).execute()
+    
 
     return {
         "telefone": dados.telefone,
@@ -106,6 +89,23 @@ def agendar(request: AgendamentoRequest):
         data_hora_inicio=data_hora,
         servico=request.servico
     )
+    endereco = {
+    "rua": "Rua Exemplo",
+    "numero": "123",
+    "bairro": "Centro",
+    "cidade": "São Paulo",
+    "cep": "00000-000",
+}
+
+    salvar_agendamento(
+    nome_cliente="Cliente WhatsApp",
+    telefone="000000000",
+    servico=request.servico,
+    data_hora=data_hora,
+    endereco=endereco,
+    calendar_event_id=evento.get("id")
+)
+
 
     return {
         "status": "confirmado",
