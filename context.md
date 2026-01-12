@@ -23,40 +23,47 @@ bot-ar-condicionado/
 ├── .env                         # Variáveis de ambiente
 ├── .gitignore                   # Arquivos ignorados pelo Git
 │
-├── core/                        # Configurações globais e Enums
-│   ├── constants.py             # Centralização de durações e estados
-│   └── context.md               # Documentação das constantes
+├── core/                        # Núcleo da aplicação
+│   ├── config.py                # Configurações (Pydantic Settings)
+│   ├── logger.py                # Logging padronizado
+│   ├── constants.py             # Enums e constantes globais
+│   ├── exceptions.py            # Exceções customizadas
+│   └── context.md               # Documentação do módulo core
 │
-├── services/                    # Lógica de negócio
-│   ├── whatsapp_service.py      # Orquestrador de mensagens
-│   ├── state_handlers.py        # Handlers individuais por estado
+├── bot/                         # Lógica do Bot
+│   ├── manager.py               # Orquestrador (BotManager)
+│   ├── states.py                # Estados da conversa (Enum)
+│   ├── context.py               # Contexto do usuário (UserContext)
+│   ├── handlers/                # Manipuladores de mensagens (Info, Booking)
+│   └── context.md               # Documentação do módulo bot
+│
+├── models/                      # Modelos de Dados (Pydantic)
+│   └── __init__.py              # Definições de Cliente, Agendamento, Webhook
+│
+├── services/                    # Integrações e Adaptadores
+│   ├── whatsapp_service.py      # Adaptador para BotManager
 │   ├── agendamentos_service.py  # Persistência no banco
 │   ├── google_calendar_service.py # Integração com Google Calendar
 │   ├── supabase_client.py       # Cliente do Supabase
-│   └── context.md               # Documentação detalhada de services
-│
-├── models/                      # Modelos Pydantic
-│   └── __init__.py              # Definições de Cliente e Agendamento
+│   └── context.md               # Documentação do módulo services
 │
 ├── tests/                       # Testes automatizados
-│   ├── unit/                    # Testes de funções isoladas
-│   ├── integration/             # Testes de fluxo completo
+│   ├── unit/                    # Testes de unidade
 │   └── context.md               # Estratégia de testes
 │
-├── scripts/                     # Scripts de apoio e automação
+├── scripts/                     # Scripts de apoio
 │
 └── credentials/                 # Credenciais (NÃO COMMITAR)
-    └── bot-ar-condicionado-*.json
 ```
 
 ## 🔄 Fluxo de Dados
 1. **Cliente envia mensagem** no WhatsApp
-2. **WPPConnect** envia webhook POST para `/whatsapp`
-3. **whatsapp_service.py** processa a mensagem e gerencia o estado da conversa
-4. Sistema **verifica disponibilidade** no Google Calendar
-5. **Cria evento** no Google Calendar
-6. **Salva agendamento** no Supabase
-7. **Retorna confirmação** para o cliente via WhatsApp
+2. **Evolution API** envia webhook POST para `/whatsapp`
+3. **whatsapp_service.py** recebe e repassa para **BotManager** (`bot/manager.py`)
+4. **BotManager** recupera/cria o **UserContext** (Supabase)
+5. **Handlers** (`InfoHandler`, `BookingHandler`) processam a intenção
+6. Se necessário, sistema verifica **Google Calendar** e salva em **Supabase**
+7. **BotManager** retorna a resposta para o cliente via adapter
 
 ## 🗄️ Banco de Dados (Supabase)
 
@@ -73,9 +80,8 @@ bot-ar-condicionado/
 ### Tabela: `conversas_whatsapp`
 - telefone (text) - PK
 - etapa (text) - Estado da conversa
-- servico, data, hora, nome (text)
-- rua, numero, bairro, cidade, cep (text)
-- updated_at (timestamp) - Controle de timeout
+- data, hora, nome, servico (text) - Dados de contexto (JSONB flatten)
+- updated_at (timestampWithTimeZone) - Controle de sessão
 - created_at (timestamp)
 
 ## 📚 Roadmap de Aprendizado
@@ -84,26 +90,12 @@ bot-ar-condicionado/
 - [x] FastAPI Simples
 - [x] Integração com Supabase
 - [x] Integração com Google Calendar
-- [x] Melhorias de código (Type Hints, Validações)
+- [x] Refatoração Arquitetural (Core/Bot/Handlers)
 - [ ] Integração completa com WhatsApp usando Evolution - API de Webhooks
 - [ ] Testes automatizados
 - [ ] Deploy em produção
 
-## 🔍 Troubleshooting (Integrações)
-
-### Google Calendar
-1. **Credenciais**: O arquivo JSON deve estar em `credentials/` e ser UTF-8 **sem BOM**.
-2. **Email no .env**: Certifique-se de que o `GOOGLE_CALENDAR_ID` é exatamente o email do seu Gmail pessoal.
-3. **Compartilhamento**: O calendário deve ser compartilhado com o email da Service Account (`client_email` do JSON).
-4. **Timezone**: O sistema usa `America/Sao_Paulo`. Datas devem ser futuras.
-5. **Logs**: Procure por prefixos `DEBUG:` no terminal para ver o link do evento criado.
-
-### Supabase
-1. **Variáveis de Ambiente**: Verifique `SUPABASE_URL` e `SUPABASE_KEY` no `.env`.
-2. **Tabelas**: Certifique-se de que as tabelas `agendamentos` e `conversas_whatsapp` existem.
-
-### WhatsApp
-1. **Reset de Conversa**: Use `menu` ou `recomeçar` para forçar o reinício a qualquer momento.
-2. **Saudações**: `oi` ou `opa` só resetam se você não estiver no meio de um agendamento.
-3. **Timeout**: A sessão expira após 5 minutos de silêncio para segurança dos dados.
-4. **Webhook**: O endpoint `/whatsapp` deve estar acessível via Ngrok (se local).
+## 🔍 Troubleshooting
+- **Logs**: Verifique o console do Uvicorn para logs formatados via `core.logger`.
+- **Environment**: Garanta que `.env` possui `SUPABASE_URL`, `SUPABASE_KEY` e ID do Calendar.
+- **Sessão**: Se o bot travar, digite `menu` ou espere 5 min (timeout).

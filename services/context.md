@@ -1,21 +1,27 @@
-# Contexto - Services
+# Documentação: Services (`services/`)
 
-Este diretório contém a lógica de processamento de mensagens e integração com o banco de dados.
+O diretório `services/` contém integrações com sistemas externos e adaptadores.
 
-## `whatsapp_service.py`
+## Integrações
 
-Gerencia o fluxo conversacional do bot. Atua como orquestrador principal (`Engine`), decidindo para qual estado o usuário deve ir. Ele delega a validação de dados e regras de negócio específicas para o `state_handlers.py`.
+### `google_calendar_service.py`
+Responsável pela comunicação com a API do Google Calendar.
+- Funções:
+    - `horario_disponivel(...)`: Verifica conflitos de horário.
+    - `criar_evento(...)`: Insere o evento na agenda.
 
-## `state_handlers.py`
+### `supabase_client.py`
+Cliente inicializado do Supabase.
+- Exporta a instância `supabase` pronta para uso.
 
-Contém a lógica de validação e processamento para cada estado (SERVICO, DATA, HORA, etc.). Isolando essa lógica, garantimos que o motor do bot (`whatsapp_service.py`) permaneça limpo e fácil de manter.
+### `agendamentos_service.py`
+Camada de persistência para a tabela principal de agendamentos.
+- Função `salvar_agendamento(...)`: Formata e insere dados na tabela `agendamentos`.
 
-## `google_calendar_service.py`
+## Adaptadores
 
-Interface de integração com a API do Google Calendar. Fornece métodos para:
-- `horario_disponivel`: Verifica conflitos de agenda.
-- `criar_evento`: Consolida o agendamento no calendário.
-
-## `agendamentos_service.py`
-
-Interface direta com a tabela `agendamentos` do Supabase. Responsável pela persistência final dos dados após confirmação.
+### `whatsapp_service.py`
+**Legado/Adaptador**.
+- Mantido para compatibilidade com o `main.py` antigo.
+- Atua como uma fachada (Facade) para o `BotManager`.
+- Função `processar_mensagem_whatsapp`: Apenas delega para `BotManager().process_message()`.
