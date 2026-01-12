@@ -94,6 +94,26 @@ class BookingHandler(BaseHandler):
         
         return f"🔙 Voltando...\n{REPROMPT_MAP.get(previous, 'O que você deseja?')}"
 
+    def _formatar_opcao_menu(self, indice: int, texto: str) -> str:
+        """
+        Formata uma opção de menu com emoji ou numeração simples.
+        
+        Args:
+            indice: Número da opção (começando de 1).
+            texto: Texto a ser exibido (ex: '08:00').
+        
+        Returns:
+            String formatada com emoji (1-10) ou numeração simples (11+).
+        """
+        emoji_keycaps = {
+            1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣",
+            6: "6️⃣", 7: "7️⃣", 8: "8️⃣", 9: "9️⃣", 10: "🔟"
+        }
+        
+        if indice in emoji_keycaps:
+            return f"{emoji_keycaps[indice]} {texto}"
+        return f"{indice}. {texto}"
+
     def _handle_service(self, context: UserContext, message: str) -> str:
         if message == "1" or "limpeza" in message:
             servico = "limpeza"
@@ -138,7 +158,7 @@ class BookingHandler(BaseHandler):
             
             # Build numbered menu
             data_formatada = data_obj.strftime("%d/%m/%Y")
-            menu_linhas = [f"{i+1}️⃣ {h}" for i, h in enumerate(horarios)]
+            menu_linhas = [self._formatar_opcao_menu(i + 1, h) for i, h in enumerate(horarios)]
             menu = "\n".join(menu_linhas)
             
             context.update_state(ConversationState.SELECT_TIME)
@@ -171,7 +191,8 @@ class BookingHandler(BaseHandler):
                 hora_selecionada = horarios_disponiveis[indice]
             else:
                 return (
-                    f"❌ Opção inválida. Escolha um número de 1 a {len(horarios_disponiveis)}.\n"
+                    "❌ Opção inválida. Escolha um número do menu (ex: 1) "
+                    "ou digite o horário diretamente (ex: 14:00).\n"
                     "_(💡 Dica: Digite 'voltar' para trocar a data)_"
                 )
         else:
