@@ -2,24 +2,26 @@ from fastapi import FastAPI, Query, HTTPException
 from datetime import datetime
 from typing import Dict, Any
 
-from services.google_calendar_service import horario_disponivel, criar_evento, GOOGLE_CALENDAR_ID
+from services.google_calendar_service import horario_disponivel, criar_evento
 from services.agendamentos_service import salvar_agendamento
 from services.whatsapp_service import processar_mensagem_whatsapp
 from models import AgendamentoRequest, MensagemWhatsApp
+from core.config import get_settings
+from core.logger import get_logger
 
+# Logger
+logger = get_logger(__name__)
+settings = get_settings()
 
 # =========================
 # APP
 # =========================
 
 app = FastAPI(
-    title="Bot de Ar-Condicionado",
+    title=settings.PROJECT_NAME,
     description="API para agendamento de serviços via WhatsApp",
-    version="1.0.0"
+    version=settings.VERSION
 )
-
-
-
 
 
 @app.get("/")
@@ -33,9 +35,6 @@ def home() -> Dict[str, str]:
     return {"mensagem": "API do bot de ar-condicionado funcionando"}
 
 
-
-
-
 # =========================
 # WHATSAPP (REAL + SIMULAÇÃO)
 # =========================
@@ -47,44 +46,15 @@ def receber_mensagem(
 ) -> Dict[str, Any]:
     """
     Recebe uma mensagem do WhatsApp e retorna a resposta do bot.
-    
-    Args:
-        dados: Objeto com telefone e mensagem do cliente
-        simulacao: Se True, retorna formato de teste
-    
-    Returns:
-        Dicionário com a resposta do bot
-    
-    Raises:
-        HTTPException: Se houver erro no processamento
-    
-    Example:
-        POST /whatsapp
-        {
-            "telefone": "11987654321",
-            "mensagem": "Olá"
-        }
     """
     try:
+        # O BotManager agora cuida de tudo internamente (Contexto, Erros, Logs)
         resposta = processar_mensagem_whatsapp(
             telefone=dados.telefone,
             mensagem=dados.mensagem
         )
-    except ValueError as e:
-        # ValueError = dados inválidos (ex: formato de telefone errado)
-        raise HTTPException(
-            status_code=400,
-            detail={"erro": "Dados inválidos", "detalhes": str(e)}
-        )
-    except KeyError as e:
-        # KeyError = campo obrigatório faltando
-        raise HTTPException(
-            status_code=400,
-            detail={"erro": "Campo obrigatório faltando", "campo": str(e)}
-        )
     except Exception as e:
-        # Erro inesperado - logar para debug
-        print(f"Erro inesperado no WhatsApp: {e}")
+        logger.error(f"Erro crítico no endpoint /whatsapp: {e}")
         raise HTTPException(
             status_code=500,
             detail={"erro": "Erro interno do servidor"}
@@ -106,9 +76,6 @@ def receber_mensagem(
     }
 
 
-
-
-
 # =========================
 # AGENDAMENTO DIRETO (API)
 # =========================
@@ -117,37 +84,6 @@ def receber_mensagem(
 def agendar(request: AgendamentoRequest) -> Dict[str, Any]:
     """
     Cria um agendamento diretamente via API.
-    
-    Verifica disponibilidade, cria evento no Google Calendar
-    e salva no banco de dados.
-    
-    Args:
-        request: Dados do agendamento (serviço, data, hora, cliente)
-    
-    Returns:
-        Dicionário com status do agendamento e link do evento
-    
-    Raises:
-        HTTPException: Se houver erro na validação ou criação
-    
-    Example:
-        POST /agendar
-        {
-            "servico": "limpeza",
-            "data": "2026-01-15",
-            "hora": "14:30",
-            "cliente": {
-                "nome": "João Silva",
-                "telefone": "11987654321",
-                "endereco": {
-                    "rua": "Rua das Flores",
-                    "numero": "123",
-                    "bairro": "Centro",
-                    "cidade": "São Paulo",
-                    "cep": "01234-567"
-                }
-            }
-        }
     """
     # Tenta converter a data e hora para datetime
     try:
@@ -156,7 +92,6 @@ def agendar(request: AgendamentoRequest) -> Dict[str, Any]:
             "%Y-%m-%d %H:%M"
         )
     except ValueError as e:
-        # ValueError = formato de data/hora inválido
         raise HTTPException(
             status_code=400,
             detail={
@@ -167,8 +102,8 @@ def agendar(request: AgendamentoRequest) -> Dict[str, Any]:
         )
 
     # Verifica se o horário está disponível no Google Calendar
+    # Obs: calendar_id é pego automaticamente do settings pelo serviço
     disponivel = horario_disponivel(
-        calendar_id=GOOGLE_CALENDAR_ID,
         data_hora_inicio=data_hora,
         servico=request.servico
     )
@@ -185,14 +120,12 @@ def agendar(request: AgendamentoRequest) -> Dict[str, Any]:
     # Cria o evento no Google Calendar
     try:
         evento = criar_evento(
-            calendar_id=GOOGLE_CALENDAR_ID,
             data_hora_inicio=data_hora,
             servico=request.servico,
             cliente=request.cliente.model_dump()
         )
     except Exception as e:
-        # Erro ao criar evento no Calendar
-        print(f"Erro ao criar evento no Calendar: {e}")
+        logger.error(f"Erro ao criar evento no Calendar via API: {e}")
         raise HTTPException(
             status_code=500,
             detail={"erro": "Erro ao criar evento no calendário"}
@@ -209,8 +142,7 @@ def agendar(request: AgendamentoRequest) -> Dict[str, Any]:
             calendar_event_id=evento.get("id")
         )
     except Exception as e:
-        # Erro ao salvar no banco
-        print(f"Erro ao salvar agendamento: {e}")
+        logger.error(f"Erro ao salvar agendamento via API: {e}")
         raise HTTPException(
             status_code=500,
             detail={"erro": "Erro ao salvar agendamento no banco de dados"}

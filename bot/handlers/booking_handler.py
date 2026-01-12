@@ -2,7 +2,7 @@ from datetime import datetime
 from ..states import ConversationState
 from ..context import UserContext
 from .base import BaseHandler
-from services.google_calendar_service import horario_disponivel, criar_evento, GOOGLE_CALENDAR_ID
+from services.google_calendar_service import horario_disponivel, criar_evento
 from services.agendamentos_service import salvar_agendamento
 from core.logger import get_logger
 
@@ -100,7 +100,6 @@ class BookingHandler(BaseHandler):
                 data_hora = datetime.strptime(f"{data_iso} {hora_limpa}", "%Y-%m-%d %H:%M")
                 
                 if not horario_disponivel(
-                    calendar_id=GOOGLE_CALENDAR_ID,
                     data_hora_inicio=data_hora,
                     servico=servico
                 ):
@@ -152,7 +151,6 @@ class BookingHandler(BaseHandler):
 
             # Final availability check
             if not horario_disponivel(
-                calendar_id=GOOGLE_CALENDAR_ID,
                 data_hora_inicio=data_hora,
                 servico=dados.get("servico")
             ):
@@ -162,7 +160,6 @@ class BookingHandler(BaseHandler):
 
             # Create event
             evento = criar_evento(
-                calendar_id=GOOGLE_CALENDAR_ID,
                 data_hora_inicio=data_hora,
                 servico=dados.get("servico"),
                 cliente=cliente
