@@ -3,4 +3,6 @@ __pycache__/
 *.pyc
 .env
 credentials/*.json
-.gitignore  
+.gitignore
+
+
