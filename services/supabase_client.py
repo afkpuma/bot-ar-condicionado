@@ -13,5 +13,5 @@ settings = get_settings()
 
 # Cria e exporta o cliente do Supabase
 # Este objeto será importado por outros módulos
-supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+supabase: Client = create_client(str(settings.SUPABASE_URL), settings.SUPABASE_KEY.get_secret_value())
 

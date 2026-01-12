@@ -8,18 +8,19 @@ from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from typing import Dict, Any, Optional
-from dotenv import load_dotenv
 
 from core.constants import DURACAO_SERVICO
+from core.config import get_settings
+from core.logger import get_logger
 
-# Carrega as variáveis de ambiente
-load_dotenv()
+# Logger
+logger = get_logger(__name__)
 
-# ID do calendário (seu email do Google)
-GOOGLE_CALENDAR_ID = os.getenv("GOOGLE_CALENDAR_ID")
-
-if not GOOGLE_CALENDAR_ID:
-    print("⚠️ AVISO: GOOGLE_CALENDAR_ID não configurado no .env!")
+# Configuração Centralizada
+settings = get_settings()
+GOOGLE_CALENDAR_ID = settings.GOOGLE_CALENDAR_ID
+# Convert FilePath to str if needed, though pydantic usually handles it.
+CREDENTIALS_PATH = str(settings.GOOGLE_CREDENTIALS_PATH)
 
 # Timezone do Brasil (São Paulo)
 TIMEZONE_BR = ZoneInfo("America/Sao_Paulo")
@@ -27,30 +28,40 @@ TIMEZONE_BR = ZoneInfo("America/Sao_Paulo")
 # Escopos de permissão necessários
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
 
-# Caminho para o arquivo de credenciais
-# Mantendo o caminho original para não quebrar a aplicação
-SERVICE_ACCOUNT_FILE = "credentials/bot-ar-condicionado-658014857844.json"
+def get_calendar_service():
+    """Autentica e retorna o serviço do Google Calendar"""
+    if not os.path.exists(CREDENTIALS_PATH):
+        logger.error(f"Arquivo de credenciais não encontrado: {CREDENTIALS_PATH}")
+        return None
+        
+    try:
+        creds = service_account.Credentials.from_service_account_file(
+            CREDENTIALS_PATH, scopes=SCOPES
+        )
+        service = build("calendar", "v3", credentials=creds)
+        logger.debug("Google Calendar API inicializada com sucesso.")
+        return service
+    except Exception as e:
+        logger.error(f"Erro ao inicializar Google Calendar: {e}")
+        return None
 
-# Inicialização do serviço ( Singleton-like para o módulo )
-try:
-    credentials = service_account.Credentials.from_service_account_file(
-        SERVICE_ACCOUNT_FILE, scopes=SCOPES
-    )
-    service = build("calendar", "v3", credentials=credentials)
-except Exception as e:
-    print(f"⚠️ Erro ao inicializar Google Calendar: {e}")
-    service = None
+# Inicialização Lazy do serviço para evitar travamento na importação se falhar
+service = get_calendar_service()
 
 def horario_disponivel(
-    calendar_id: str,
     data_hora_inicio: datetime,
-    servico: str
+    servico: str,
+    calendar_id: Optional[str] = None
 ) -> bool:
     """
     Verifica se um horário está disponível no Google Calendar.
+    Se calendar_id não for fornecido, usa o padrão das configurações.
     """
     if not service:
-        return True # Fallback para não travar se a API falhar
+        logger.warning("Serviço de calendário indisponível. Assumindo horário livre para teste.")
+        return True # Fallback
+
+    target_calendar_id = calendar_id or GOOGLE_CALENDAR_ID
 
     duracao = DURACAO_SERVICO.get(servico)
     if not duracao:
@@ -61,7 +72,7 @@ def horario_disponivel(
 
     try:
         eventos = service.events().list(
-            calendarId=calendar_id,
+            calendarId=target_calendar_id,
             timeMin=inicio.isoformat(),
             timeMax=fim.isoformat(),
             singleEvents=True
@@ -69,20 +80,22 @@ def horario_disponivel(
 
         return len(eventos.get("items", [])) == 0
     except Exception as e:
-        print(f"Erro ao listar eventos: {e}")
+        logger.error(f"Erro ao listar eventos: {e}")
         return True
 
 def criar_evento(
-    calendar_id: str,
     data_hora_inicio: datetime,
     servico: str,
-    cliente: Dict[str, Any]
+    cliente: Dict[str, Any],
+    calendar_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """
     Cria um evento no Google Calendar.
     """
     if not service:
         raise Exception("Serviço Google Calendar não inicializado.")
+
+    target_calendar_id = calendar_id or GOOGLE_CALENDAR_ID
 
     duracao = DURACAO_SERVICO.get(servico)
     if not duracao:
@@ -114,10 +127,11 @@ def criar_evento(
 
     try:
         evento_criado = service.events().insert(
-            calendarId=calendar_id,
+            calendarId=target_calendar_id,
             body=evento
         ).execute()
+        logger.info(f"Evento criado: {evento_criado.get('htmlLink')}")
         return evento_criado
     except Exception as e:
-        print(f"ERRO ao criar evento no Google Calendar: {str(e)}")
+        logger.error(f"ERRO ao criar evento no Google Calendar: {str(e)}")
         raise e
