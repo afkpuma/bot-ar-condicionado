@@ -8,6 +8,29 @@ from core.logger import get_logger
 
 logger = get_logger(__name__)
 
+PREVIOUS_STATE = {
+    ConversationState.SELECT_DATE: ConversationState.SELECT_SERVICE,
+    ConversationState.SELECT_TIME: ConversationState.SELECT_DATE,
+    ConversationState.PROVIDE_NAME: ConversationState.SELECT_TIME,
+    ConversationState.PROVIDE_STREET: ConversationState.PROVIDE_NAME,
+    ConversationState.PROVIDE_NUMBER: ConversationState.PROVIDE_STREET,
+    ConversationState.PROVIDE_NEIGHBORHOOD: ConversationState.PROVIDE_NUMBER,
+    ConversationState.PROVIDE_CITY: ConversationState.PROVIDE_NEIGHBORHOOD,
+    ConversationState.PROVIDE_ZIP: ConversationState.PROVIDE_CITY,
+}
+
+REPROMPT_MAP = {
+    ConversationState.SELECT_SERVICE: "Qual serviço você deseja? 1. Limpeza, 2. Manutenção, 3. Instalação",
+    ConversationState.SELECT_DATE: "Qual data você prefere? (DD/MM/AAAA)\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
+    ConversationState.SELECT_TIME: "Qual horário? (HH:MM)\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
+    ConversationState.PROVIDE_NAME: "Qual o seu nome completo?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
+    ConversationState.PROVIDE_STREET: "Qual o nome da sua rua?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
+    ConversationState.PROVIDE_NUMBER: "Qual o número?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
+    ConversationState.PROVIDE_NEIGHBORHOOD: "Qual o bairro?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
+    ConversationState.PROVIDE_CITY: "Qual a sua cidade?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
+    ConversationState.PROVIDE_ZIP: "E para finalizar, qual o seu CEP?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
+}
+
 class BookingHandler(BaseHandler):
     def should_handle(self, context: UserContext, message: str) -> bool:
         return context.state in [
@@ -26,6 +49,9 @@ class BookingHandler(BaseHandler):
         state = context.state
         message_cleaned = message.strip()
         message_lower = message_cleaned.lower()
+
+        if message_lower in ["voltar", "corrigir", "anterior", "back"]:
+            return self._handle_back(context)
 
         if state == ConversationState.SELECT_SERVICE:
             return self._handle_service(context, message_lower)
@@ -47,6 +73,21 @@ class BookingHandler(BaseHandler):
             return self._handle_zip_and_finish(context, message_cleaned)
         
         return "Desculpe, não entendi. Tente novamente."
+
+    def _handle_back(self, context: UserContext) -> str:
+        current_state = context.state
+        previous = PREVIOUS_STATE.get(current_state)
+
+        if not previous:
+            return "Não é possível voltar a partir daqui. Digite 'menu' para reiniciar."
+        
+        # Using context.update_state as requested to ensure updated_at is refreshed
+        context.update_state(previous)
+        
+        # Clean current state data? Maybe not strictly necessary if overwriting, but good for cleanliness.
+        # However, keeping it might be a feature (preserving filled info). Let's keep it simple.
+        
+        return f"🔙 Voltando...\n{REPROMPT_MAP.get(previous, 'O que você deseja?')}"
 
     def _handle_service(self, context: UserContext, message: str) -> str:
         if message == "1" or "limpeza" in message:
