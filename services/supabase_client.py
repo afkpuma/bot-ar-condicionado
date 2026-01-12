@@ -1,13 +1,17 @@
-import os
-from dotenv import load_dotenv
-from supabase import create_client
+"""
+Cliente do Supabase.
 
-load_dotenv()
+Configura e exporta o cliente do Supabase para uso em todo o sistema.
+As credenciais são carregadas de variáveis de ambiente por segurança.
+"""
 
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-if not SUPABASE_URL or not SUPABASE_KEY:
-    raise RuntimeError("Variáveis SUPABASE_URL ou SUPABASE_KEY não configuradas")
+from supabase import create_client, Client
+from core.config import get_settings
 
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+settings = get_settings()
+
+# Cria e exporta o cliente do Supabase
+# Este objeto será importado por outros módulos
+supabase: Client = create_client(settings.SUPABASE_URL, settings.SUPABASE_KEY)
+
