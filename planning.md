@@ -18,6 +18,17 @@ Este arquivo complementa o `context.md` e o `rules.rpi`. Enquanto eles definem "
 | **Início** | **Supabase como Backend** | Solução "BaaS" que agiliza o setup de banco de dados e autenticação (futura) sem complexidade de infra. | ✅ Implementado |
 | **2026-01** | **Máquina de Estados (FSM) no Banco** | Persistir o estado da conversa (`etapa`) no banco permite que o bot não "esqueça" o usuário se o servidor reiniciar. | ✅ Implementado |
 | **2026-01** | **UX Fluida (Planejado)** | Mudar de "Input Rígido" para "Seleção Guiada" (ex: listar horários em vez de pedir input manual) para reduzir fricção. | 🚧 Em Andamento |
+| **2026-01** | **Handlers Stateless para Listas** | Não persistir listas complexas (horários/agendamentos) no contexto do banco para evitar erros de schema. Re-buscar dados na ação. | ✅ Implementado |
+| **2026-01** | **TRANSIENT_KEYS no Manager** | Dupla proteção: mesmo que um handler salve dados transientes, o `BotManager.save_context()` filtra automaticamente antes do upsert. | ✅ Implementado |
+
+### 📝 Detalhamento: Stateless Pattern
+
+**Problema Original:** O `CancellationHandler` salvava `agendamentos_para_cancelar` (lista de dicts) no `context.data`, que era persistido no Supabase. A tabela `conversas_whatsapp` não possui colunas para listas complexas, causando erros de schema.
+
+**Solução em 3 Camadas:**
+1. **Handler Layer**: `CancellationHandler` não salva listas no contexto. Re-busca `buscar_agendamentos_futuros()` no momento da seleção.
+2. **Manager Layer**: `TRANSIENT_KEYS = {"horarios_disponiveis", "agendamentos_para_cancelar"}` filtra dados antes do `upsert`.
+3. **Benefit**: Atomicidade garantida + proteção dupla contra vazamento de dados transientes.
 
 ---
 
@@ -77,10 +88,10 @@ O foco atual é transformar a prova de conceito (PoC) em um produto com UX robus
   - **Arquivo:** `services/agendamentos_service.py`
   - **Tarefa:** `buscar_agendamentos_futuros(telefone)`.
 
-- [x] **4.2. CancellationHandler**
+- [x] **4.2. CancellationHandler Stateless**
   - **Arquivo:** `bot/handlers/cancellation_handler.py`
   - **Tarefa:** Criar handler dedicado para o fluxo de cancelamento.
-  - **Lógica:** Listar agendamentos -> Confirmar -> Deletar no Calendar -> Atualizar no Supabase.
+  - **Lógica:** Listar agendamentos -> Confirmar (rebuscando dados) -> Deletar no Calendar -> Atualizar no Supabase.
 
 ---
 

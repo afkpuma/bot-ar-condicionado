@@ -32,7 +32,8 @@ def test_full_cycle():
     # 2. Agendar (Fluxo Feliz)
     enviar("1", "Serviço: Limpeza")
     enviar("25/12/2026", "Data Futura")
-    enviar("1", "Horário: Primeiro disponível")
+    # Seleciona o primeiro horário disponível dinamicamente
+    enviar("1", "Horário: Primeiro disponível do menu") 
     enviar("Tester Full Cycle", "Nome")
     enviar("Rua Integração", "Rua")
     enviar("100", "Número")
@@ -51,7 +52,7 @@ def test_full_cycle():
     enviar("sim", "Confirmar Agendamento")
     
     print("\n--- ⏳ Aguardando persistência... ---")
-    time.sleep(1)
+    time.sleep(2)
 
     # 4. Fase de Cancelamento (Fase 4)
     msg_cancel = enviar("cancelar", "Comando Cancelar")

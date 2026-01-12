@@ -55,9 +55,6 @@ class CancellationHandler(BaseHandler):
     def _iniciar_cancelamento(self, context: UserContext) -> str:
         """
         Busca agendamentos futuros e exibe lista numerada.
-        
-        Se não houver agendamentos, informa o usuário.
-        Se houver, salva a lista no contexto e muda o estado.
         """
         telefone = context.phone
         logger.info(f"Iniciando fluxo de cancelamento para {telefone}")
@@ -73,8 +70,8 @@ class CancellationHandler(BaseHandler):
                 "Digite *menu* para ver as opções disponíveis."
             )
         
-        # Salva a lista no contexto para referência posterior
-        context.data["agendamentos_para_cancelar"] = agendamentos
+        # Decisão Arquitetural: Não salvamos a lista complexa no context.data
+        # para evitar erros de serialização no Supabase.
         context.update_state(ConversationState.SELECT_CANCEL_ID)
         
         # Monta a lista numerada
@@ -113,17 +110,15 @@ class CancellationHandler(BaseHandler):
     def _processar_selecao(self, context: UserContext, message: str) -> str:
         """
         Processa a seleção do usuário e executa o cancelamento.
-        
-        Valida o número, cancela no Calendar e marca como cancelado no banco.
+        Re-busca os agendamentos para garantir que a lista está atualizada.
         """
-        # Recupera a lista salva
-        agendamentos = context.data.get("agendamentos_para_cancelar", [])
+        # Re-busca a lista (Stateless approach)
+        agendamentos = buscar_agendamentos_futuros(context.phone)
         
         if not agendamentos:
-            # Lista expirou ou foi perdida, reinicia o fluxo
             context.update_state(ConversationState.START)
             return (
-                "❌ Lista de agendamentos expirou.\n"
+                "❌ A lista de agendamentos mudou ou expirou.\n"
                 "Digite *cancelar* para ver seus agendamentos novamente."
             )
         
@@ -154,7 +149,6 @@ class CancellationHandler(BaseHandler):
         if calendar_event_id:
             calendar_success = cancelar_evento(calendar_event_id)
             if not calendar_success:
-                # Log de erro já foi feito, mas continuamos
                 logger.warning(
                     f"Falha ao cancelar evento {calendar_event_id} no Calendar, "
                     f"prosseguindo com cancelamento no banco."
@@ -170,8 +164,7 @@ class CancellationHandler(BaseHandler):
                 "Por favor, tente novamente ou contate o suporte."
             )
         
-        # Limpa os dados de cancelamento do contexto
-        context.data.pop("agendamentos_para_cancelar", None)
+        # Sucesso
         context.update_state(ConversationState.START)
         
         logger.info(f"Agendamento {agendamento_id} ({servico}) cancelado com sucesso")

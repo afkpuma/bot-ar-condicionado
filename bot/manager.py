@@ -1,5 +1,5 @@
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Set
 from services.supabase_client import supabase
 from core.logger import get_logger
 from core.constants import TIMEOUT_SESSAO
@@ -11,6 +11,13 @@ from .handlers.cancellation_handler import CancellationHandler
 from .handlers.booking_handler import BookingHandler
 
 logger = get_logger(__name__)
+
+# Chaves que NÃO devem ser persistidas no banco de dados
+# Isso previne erros de schema e reduz tráfego desnecessário
+TRANSIENT_KEYS: Set[str] = {
+    "horarios_disponiveis", 
+    "agendamentos_para_cancelar"
+}
 
 class BotManager:
     def __init__(self):
@@ -60,7 +67,8 @@ class BotManager:
                 return UserContext(
                     phone=phone,
                     state=ConversationState(data.get("etapa", ConversationState.START)),
-                    data={k: v for k, v in data.items() if k not in ["telefone", "etapa", "created_at", "updated_at"]},
+                    # Filtra colunas do sistema que não são dados de contexto
+                    data={k: v for k, v in data.items() if k not in ["telefone", "etapa", "created_at", "updated_at", "id"]},
                     updated_at=updated_at
                 )
             else:
@@ -82,11 +90,9 @@ class BotManager:
                 "updated_at": datetime.now(timezone.utc).isoformat()
             }
             # Merge context data into payload (flattened for DB)
-            # Note: This assumes DB columns match context.data keys. 
-            # Transient keys that shouldn't be persisted:
-            TRANSIENT_KEYS = {"horarios_disponiveis"}
-            filtered_data = {k: v for k, v in context.data.items() if k not in TRANSIENT_KEYS}
-            payload.update(filtered_data)
+            # Filtra chaves transientes antes de salvar
+            clean_data = {k: v for k, v in context.data.items() if k not in TRANSIENT_KEYS}
+            payload.update(clean_data)
 
             supabase.table("conversas_whatsapp").upsert(
                 payload, on_conflict="telefone"
@@ -111,5 +117,5 @@ class BotManager:
                     logger.error(f"Error in handler {handler.__class__.__name__}: {e}")
                     return "Desculpe, ocorreu um erro interno. Tente novamente mais tarde."
         
-        # Default fallback if no handler matches (shouldn't happen if we have a default handler)
+        # Default fallback if no handler matches
         return "Olá! Não entendi. Digite 'menu' para começar."
