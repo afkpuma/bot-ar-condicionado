@@ -16,11 +16,11 @@ class BotManager:
     def __init__(self):
         self.handlers: list[BaseHandler] = []
         # Register handlers in priority order:
-        # 1. InfoHandler: handles "menu" and START state
-        # 2. CancellationHandler: handles "cancelar" command (intercepts any flow)
+        # 1. CancellationHandler: handles "cancelar" command (Highest Priority)
+        # 2. InfoHandler: handles "menu" and START/FINISHED state
         # 3. BookingHandler: handles the booking flow
-        self.register_handler(InfoHandler())
         self.register_handler(CancellationHandler())
+        self.register_handler(InfoHandler())
         self.register_handler(BookingHandler())
 
     def register_handler(self, handler: BaseHandler):

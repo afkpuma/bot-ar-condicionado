@@ -32,7 +32,7 @@ def test_full_cycle():
     # 2. Agendar (Fluxo Feliz)
     enviar("1", "Serviço: Limpeza")
     enviar("25/12/2026", "Data Futura")
-    enviar("09:00", "Horário")
+    enviar("1", "Horário: Primeiro disponível")
     enviar("Tester Full Cycle", "Nome")
     enviar("Rua Integração", "Rua")
     enviar("100", "Número")
