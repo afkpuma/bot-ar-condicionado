@@ -3,7 +3,6 @@ from googleapiclient.discovery import build
 from datetime import datetime, timedelta
 
 SCOPES = ["https://www.googleapis.com/auth/calendar"]
-
 SERVICE_ACCOUNT_FILE = "credentials/bot-ar-condicionado-658014857844.json"
 
 credentials = service_account.Credentials.from_service_account_file(
@@ -12,15 +11,17 @@ credentials = service_account.Credentials.from_service_account_file(
 
 service = build("calendar", "v3", credentials=credentials)
 
+agora = datetime.now()  # NAIVE de propósito
+
 evento = {
     "summary": "Teste - Limpeza de Ar-Condicionado",
     "description": "Evento criado automaticamente pelo bot",
     "start": {
-        "dateTime": (datetime.now() + timedelta(hours=1)).isoformat(),
+        "dateTime": (agora + timedelta(hours=0)).strftime("%Y-%m-%dT%H:%M:%S"),
         "timeZone": "America/Sao_Paulo",
     },
     "end": {
-        "dateTime": (datetime.now() + timedelta(hours=2)).isoformat(),
+        "dateTime": (agora + timedelta(hours=2)).strftime("%Y-%m-%dT%H:%M:%S"),
         "timeZone": "America/Sao_Paulo",
     },
 }

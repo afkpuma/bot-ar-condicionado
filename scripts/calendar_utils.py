@@ -43,7 +43,7 @@ def horario_disponivel(calendar_id, data_hora_inicio, servico):
 
     return len(eventos.get("items", [])) == 0
 
-def criar_evento(calendar_id, data_hora_inicio, servico):
+def criar_evento(calendar_id, data_hora_inicio, servico, cliente):
     duracao = DURACAO_SERVICO.get(servico)
     if not duracao:
         return None
@@ -52,17 +52,27 @@ def criar_evento(calendar_id, data_hora_inicio, servico):
     fim = inicio + timedelta(hours=duracao)
 
     evento = {
-        "summary": f"{servico.capitalize()} - Ar Condicionado",
-        "description": f"Serviço de {servico} agendado automaticamente pelo bot",
+        "summary": f"{servico.capitalize()} - {cliente['nome']}",
+        "description": f"""
+    Cliente: {cliente['nome']}
+    Telefone: {cliente['telefone']}
+
+    Endereço:
+    {cliente['endereco']['rua']}, {cliente['endereco']['numero']}
+    {cliente['endereco']['bairro']} - {cliente['endereco']['cidade']}
+    CEP: {cliente['endereco']['cep']}
+    """,
         "start": {
             "dateTime": inicio.strftime("%Y-%m-%dT%H:%M:%S"),
             "timeZone": "America/Sao_Paulo",
-        },
-        "end": {
+    },
+    "end": {
             "dateTime": fim.strftime("%Y-%m-%dT%H:%M:%S"),
             "timeZone": "America/Sao_Paulo",
-        },
-    }
+    },
+}
+
+
 
     evento_criado = service.events().insert(
         calendarId=calendar_id,
