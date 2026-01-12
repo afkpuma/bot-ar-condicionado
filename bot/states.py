@@ -16,6 +16,9 @@ class ConversationState(StrEnum):
     PROVIDE_CITY = "PROVIDE_CITY"
     PROVIDE_ZIP = "PROVIDE_ZIP"
     
+    # Cancellation Flow
+    SELECT_CANCEL_ID = "SELECT_CANCEL_ID"
+    
     # Final
     CONFIRMATION = "CONFIRMATION"
     FINISHED = "FINISHED"

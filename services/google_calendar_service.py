@@ -172,3 +172,43 @@ def listar_horarios_livres(data: date, servico: str) -> List[str]:
 
     return horarios_livres
 
+
+def cancelar_evento(event_id: str, calendar_id: Optional[str] = None) -> bool:
+    """
+    Remove um evento do Google Calendar.
+    
+    Args:
+        event_id: ID do evento a ser cancelado.
+        calendar_id: ID do calendário (opcional, usa o padrão se não fornecido).
+    
+    Returns:
+        True se o evento foi cancelado ou já não existia.
+        False apenas em casos de erro crítico de conexão.
+    
+    Note:
+        Esta função é resiliente: se o evento já foi deletado manualmente,
+        retorna True para não bloquear o fluxo de cancelamento no banco.
+    """
+    if not service:
+        logger.warning("Serviço de calendário indisponível. Cancelamento no Calendar ignorado.")
+        return True  # Permite continuar com cancelamento no banco
+    
+    target_calendar_id = calendar_id or GOOGLE_CALENDAR_ID
+    
+    try:
+        service.events().delete(
+            calendarId=target_calendar_id,
+            eventId=event_id
+        ).execute()
+        logger.info(f"Evento {event_id} cancelado com sucesso no Google Calendar.")
+        return True
+    except Exception as e:
+        # HttpError 404 = evento já foi deletado, o que é aceitável
+        error_str = str(e)
+        if "404" in error_str or "Not Found" in error_str:
+            logger.warning(f"Evento {event_id} não encontrado no Calendar (já deletado?).")
+            return True
+        
+        # Outros erros (rede, permissão, etc.)
+        logger.error(f"Erro ao cancelar evento {event_id} no Calendar: {e}")
+        return False  # Indica falha, mas chamador decide se continua

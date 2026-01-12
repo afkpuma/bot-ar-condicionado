@@ -17,6 +17,7 @@ PREVIOUS_STATE = {
     ConversationState.PROVIDE_NEIGHBORHOOD: ConversationState.PROVIDE_NUMBER,
     ConversationState.PROVIDE_CITY: ConversationState.PROVIDE_NEIGHBORHOOD,
     ConversationState.PROVIDE_ZIP: ConversationState.PROVIDE_CITY,
+    ConversationState.CONFIRMATION: ConversationState.PROVIDE_ZIP,
 }
 
 REPROMPT_MAP = {
@@ -29,6 +30,7 @@ REPROMPT_MAP = {
     ConversationState.PROVIDE_NEIGHBORHOOD: "Qual o bairro?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
     ConversationState.PROVIDE_CITY: "Qual a sua cidade?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
     ConversationState.PROVIDE_ZIP: "E para finalizar, qual o seu CEP?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
+    ConversationState.CONFIRMATION: "Confira os dados acima. Está tudo correto? (Sim/Não)",
 }
 
 class BookingHandler(BaseHandler):
@@ -42,7 +44,8 @@ class BookingHandler(BaseHandler):
             ConversationState.PROVIDE_NUMBER,
             ConversationState.PROVIDE_NEIGHBORHOOD,
             ConversationState.PROVIDE_CITY,
-            ConversationState.PROVIDE_ZIP
+            ConversationState.PROVIDE_ZIP,
+            ConversationState.CONFIRMATION
         ]
 
     def handle(self, context: UserContext, message: str) -> str:
@@ -70,7 +73,9 @@ class BookingHandler(BaseHandler):
         elif state == ConversationState.PROVIDE_CITY:
             return self._handle_generic_input(context, message_cleaned, "cidade", ConversationState.PROVIDE_ZIP, "E para finalizar, qual o seu CEP?")
         elif state == ConversationState.PROVIDE_ZIP:
-            return self._handle_zip_and_finish(context, message_cleaned)
+            return self._handle_zip_and_review(context, message_cleaned)
+        elif state == ConversationState.CONFIRMATION:
+            return self._handle_confirmation(context, message_lower)
         
         return "Desculpe, não entendi. Tente novamente."
 
@@ -205,12 +210,64 @@ class BookingHandler(BaseHandler):
         context.update_state(next_state)
         return response_text
 
-    def _handle_zip_and_finish(self, context: UserContext, message: str) -> str:
+    def _handle_zip_and_review(self, context: UserContext, message: str) -> str:
+        """Saves the ZIP code and displays a summary for user confirmation."""
         context.data["cep"] = message
-        # We don't update state to FINISHED yet because we might fail to save.
-        # But logically we are done.
+        logger.info(f"CEP received for {context.phone}, preparing confirmation summary")
         
-        return self._finalize_booking(context)
+        # Build the full address string
+        dados = context.data
+        endereco_completo = (
+            f"{dados.get('rua', 'N/A')}, {dados.get('numero', 'S/N')}, "
+            f"{dados.get('bairro', 'N/A')} - {dados.get('cidade', 'N/A')}, "
+            f"CEP: {message}"
+        )
+        
+        # Format date for display
+        data_iso = dados.get('data', '')
+        try:
+            data_formatada = datetime.strptime(data_iso, "%Y-%m-%d").strftime("%d/%m/%Y")
+        except ValueError:
+            data_formatada = data_iso
+        
+        # Build confirmation summary with emojis and markdown
+        resumo = (
+            "📋 *RESUMO DO AGENDAMENTO*\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            f"🛠 *Serviço:* {dados.get('servico', 'N/A').capitalize()}\n"
+            f"📅 *Data:* {data_formatada}\n"
+            f"⏰ *Horário:* {dados.get('hora', 'N/A')}\n"
+            f"👤 *Nome:* {dados.get('nome', 'N/A')}\n"
+            f"🏠 *Endereço:* {endereco_completo}\n\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            "Os dados estão corretos? (Sim / Não)"
+        )
+        
+        context.update_state(ConversationState.CONFIRMATION)
+        return resumo
+
+    def _handle_confirmation(self, context: UserContext, message: str) -> str:
+        """Handles user confirmation before finalizing the booking."""
+        # Normalize input for matching
+        positive_responses = ["sim", "s", "ok", "confirmar", "confirmo", "correto", "yes", "y"]
+        negative_responses = ["não", "nao", "n", "corrigir", "errado", "no"]
+        
+        if message in positive_responses:
+            logger.info(f"Booking confirmed by user {context.phone}")
+            return self._finalize_booking(context)
+        elif message in negative_responses:
+            logger.info(f"User {context.phone} rejected booking summary, offering correction options")
+            return (
+                "Sem problemas! 🔄\n\n"
+                "Para corrigir algum campo, digite *voltar* quantas vezes precisar.\n"
+                "Para cancelar e recomeçar, digite *menu*.\n\n"
+                "_(💡 Dica: Cada 'voltar' retorna uma etapa)_"
+            )
+        else:
+            return (
+                "Não entendi 😅\n"
+                "Por favor, responda apenas *Sim* para confirmar ou *Não* para corrigir."
+            )
 
     def _finalize_booking(self, context: UserContext) -> str:
         try:

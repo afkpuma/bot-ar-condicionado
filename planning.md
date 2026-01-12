@@ -28,15 +28,15 @@ O foco atual é transformar a prova de conceito (PoC) em um produto com UX robus
 ### 📌 Fase 1: Resiliência e Navegação (UX Basics)
 *Objetivo: Permitir que o usuário erre e corrija sem frustração.*
 
-- [ ] **1.1. Mapeamento Reverso de Estados**
+- [x] **1.1. Mapeamento Reverso de Estados**
   - **Arquivo:** `bot/handlers/booking_handler.py`
   - **Tarefa:** Criar dicionário constante `PREVIOUS_STATE` mapeando cada estado para seu anterior lógico (ex: `PROVIDE_NUMBER` -> `PROVIDE_STREET`).
   
-- [ ] **1.2. Comando Universal "Voltar"**
+- [x] **1.2. Comando Universal "Voltar"**
   - **Arquivo:** `bot/handlers/booking_handler.py` (método `handle`)
   - **Tarefa:** Interceptar comandos como "voltar", "corrigir", "anterior". Usar o mapa reverso para restaurar o estado e perguntar novamente.
   
-- [ ] **1.3. Testes de Navegação**
+- [x] **1.3. Testes de Navegação**
   - **Arquivo:** `tests/integration/test_navigation.py`
   - **Tarefa:** Simular fluxo onde usuário avança 3 passos, volta 1 e conclui.
 
@@ -59,11 +59,11 @@ O foco atual é transformar a prova de conceito (PoC) em um produto com UX robus
 ### 📌 Fase 3: Segurança e Confirmação
 *Objetivo: Garantir precisão antes da persistência.*
 
-- [ ] **3.1. Estado de Confirmação**
+- [x] **3.1. Estado de Confirmação**
   - **Arquivo:** `bot/states.py`
   - **Tarefa:** Adicionar `CONFIRMATION` ao Enum `ConversationState`.
 
-- [ ] **3.2. Fluxo de Review**
+- [x] **3.2. Fluxo de Review**
   - **Arquivo:** `bot/handlers/booking_handler.py`
   - **Tarefa:** Antes de salvar:
     1. Exibir resumo completo (Serviço, Data/Hora, Endereço).
@@ -73,11 +73,11 @@ O foco atual é transformar a prova de conceito (PoC) em um produto com UX robus
 ### 📌 Fase 4: Gestão Completa (Cancelamento)
 *Objetivo: Ciclo de vida completo do agendamento.*
 
-- [ ] **4.1. Busca de Agendamentos**
+- [x] **4.1. Busca de Agendamentos**
   - **Arquivo:** `services/agendamentos_service.py`
   - **Tarefa:** `buscar_agendamentos_futuros(telefone)`.
 
-- [ ] **4.2. CancellationHandler**
+- [x] **4.2. CancellationHandler**
   - **Arquivo:** `bot/handlers/cancellation_handler.py`
   - **Tarefa:** Criar handler dedicado para o fluxo de cancelamento.
   - **Lógica:** Listar agendamentos -> Confirmar -> Deletar no Calendar -> Atualizar no Supabase.

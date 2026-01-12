@@ -7,6 +7,7 @@ from .states import ConversationState
 from .context import UserContext
 from .handlers.base import BaseHandler
 from .handlers.info_handler import InfoHandler
+from .handlers.cancellation_handler import CancellationHandler
 from .handlers.booking_handler import BookingHandler
 
 logger = get_logger(__name__)
@@ -14,10 +15,12 @@ logger = get_logger(__name__)
 class BotManager:
     def __init__(self):
         self.handlers: list[BaseHandler] = []
-        # Register handlers (InfoHandler should be last as fallback, OR first if it handles global commands?)
-        # Strategy: InfoHandler handles specific commands ("menu") regardless of state, so it goes first.
-        # But it also handles START.
+        # Register handlers in priority order:
+        # 1. InfoHandler: handles "menu" and START state
+        # 2. CancellationHandler: handles "cancelar" command (intercepts any flow)
+        # 3. BookingHandler: handles the booking flow
         self.register_handler(InfoHandler())
+        self.register_handler(CancellationHandler())
         self.register_handler(BookingHandler())
 
     def register_handler(self, handler: BaseHandler):

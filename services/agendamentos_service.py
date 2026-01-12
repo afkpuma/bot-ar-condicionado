@@ -80,3 +80,66 @@ def salvar_agendamento(
     response = supabase.table("agendamentos").insert(data).execute()
     return response.data
 
+
+def buscar_agendamentos_futuros(telefone: str) -> List[Dict[str, Any]]:
+    """
+    Busca agendamentos futuros de um cliente pelo telefone.
+    
+    Args:
+        telefone: Número de telefone do cliente.
+    
+    Returns:
+        Lista de agendamentos futuros com status diferente de 'cancelado'.
+        Cada item contém: id, servico, data_hora, calendar_event_id.
+    
+    Example:
+        >>> buscar_agendamentos_futuros("11987654321")
+        [{"id": 1, "servico": "limpeza", "data_hora": "2026-01-20T14:00:00", ...}]
+    """
+    from datetime import datetime
+    
+    agora = datetime.now().isoformat()
+    
+    try:
+        response = supabase.table("agendamentos") \
+            .select("id, servico, data_hora, calendar_event_id, nome_cliente") \
+            .eq("telefone", telefone) \
+            .neq("status", "cancelado") \
+            .gt("data_hora", agora) \
+            .order("data_hora", desc=False) \
+            .execute()
+        
+        return response.data or []
+    except Exception as e:
+        from core.logger import get_logger
+        logger = get_logger(__name__)
+        logger.error(f"Erro ao buscar agendamentos futuros para {telefone}: {e}")
+        return []
+
+
+def marcar_agendamento_como_cancelado(agendamento_id: int) -> bool:
+    """
+    Marca um agendamento como cancelado (soft delete).
+    
+    Args:
+        agendamento_id: ID do agendamento na tabela.
+    
+    Returns:
+        True se a atualização foi bem-sucedida, False caso contrário.
+    
+    Note:
+        Segue a regra de Soft Delete do rules.rpi - não deleta o registro,
+        apenas atualiza o campo 'status' para 'cancelado'.
+    """
+    try:
+        response = supabase.table("agendamentos") \
+            .update({"status": "cancelado"}) \
+            .eq("id", agendamento_id) \
+            .execute()
+        
+        return len(response.data) > 0
+    except Exception as e:
+        from core.logger import get_logger
+        logger = get_logger(__name__)
+        logger.error(f"Erro ao marcar agendamento {agendamento_id} como cancelado: {e}")
+        return False
