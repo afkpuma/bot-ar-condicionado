@@ -2,7 +2,7 @@ from datetime import datetime
 from ..states import ConversationState
 from ..context import UserContext
 from .base import BaseHandler
-from services.google_calendar_service import horario_disponivel, criar_evento
+from services.google_calendar_service import horario_disponivel, criar_evento, listar_horarios_livres
 from services.agendamentos_service import salvar_agendamento
 from core.logger import get_logger
 
@@ -22,7 +22,7 @@ PREVIOUS_STATE = {
 REPROMPT_MAP = {
     ConversationState.SELECT_SERVICE: "Qual serviço você deseja? 1. Limpeza, 2. Manutenção, 3. Instalação",
     ConversationState.SELECT_DATE: "Qual data você prefere? (DD/MM/AAAA)\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
-    ConversationState.SELECT_TIME: "Qual horário? (HH:MM)\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
+    ConversationState.SELECT_TIME: "Qual número você prefere?\n\n_(💡 Dica: Digite 'voltar' para trocar a data)_",
     ConversationState.PROVIDE_NAME: "Qual o seu nome completo?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
     ConversationState.PROVIDE_STREET: "Qual o nome da sua rua?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
     ConversationState.PROVIDE_NUMBER: "Qual o número?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
@@ -115,30 +115,78 @@ class BookingHandler(BaseHandler):
             data_obj = datetime.strptime(data_limpa, "%d/%m/%Y")
             data_iso = data_obj.strftime("%Y-%m-%d")
             
-            # Basic validation: ensure date is not in the past
-            # if data_obj.date() < datetime.now().date():
-            #     return "A data deve ser futura. Por favor, escolha outra data."
+            # Validation: ensure date is not in the past
+            if data_obj.date() < datetime.now().date():
+                return "📅 Essa data já passou. Por favor, escolha uma data futura."
 
             context.data["data"] = data_iso
+            
+            # Fetch available slots
+            servico = context.data.get("servico")
+            horarios = listar_horarios_livres(data_obj.date(), servico)
+            
+            if not horarios:
+                return "📅 Não tenho horários livres para essa data. Por favor, escolha outra."
+            
+            # Save available slots in context for later use
+            context.data["horarios_disponiveis"] = horarios
+            
+            # Build numbered menu
+            data_formatada = data_obj.strftime("%d/%m/%Y")
+            menu_linhas = [f"{i+1}️⃣ {h}" for i, h in enumerate(horarios)]
+            menu = "\n".join(menu_linhas)
+            
             context.update_state(ConversationState.SELECT_TIME)
-            return "Ótimo! Agora informe o horário (HH:MM)"
+            return (
+                f"Encontrei estes horários para {data_formatada}:\n\n"
+                f"{menu}\n\n"
+                "Qual número você prefere?\n"
+                "_(💡 Dica: Digite 'voltar' para trocar a data)_"
+            )
         except ValueError:
             return "Data inválida 😕\nPor favor, use o formato Dia/Mês/Ano (ex: 15/01/2026)"
 
     def _handle_time(self, context: UserContext, message: str) -> str:
         hora_limpa = message.replace(" ", "")
-        try:
-            datetime.strptime(hora_limpa, "%H:%M")
-        except ValueError:
-            return "Horário inválido 😕\nPor favor, use o formato Hora:Minuto (ex: 14:30)"
+        horarios_disponiveis = context.data.get("horarios_disponiveis", [])
+        
+        # If horarios_disponiveis is empty (e.g., session reloaded from DB), recalculate
+        if not horarios_disponiveis:
+            data_iso = context.data.get("data")
+            servico = context.data.get("servico")
+            if data_iso and servico:
+                data_obj = datetime.strptime(data_iso, "%Y-%m-%d").date()
+                horarios_disponiveis = listar_horarios_livres(data_obj, servico)
+                context.data["horarios_disponiveis"] = horarios_disponiveis
+        
+        # Try to interpret as menu index first
+        if hora_limpa.isdigit():
+            indice = int(hora_limpa) - 1  # Convert to 0-indexed
+            if 0 <= indice < len(horarios_disponiveis):
+                hora_selecionada = horarios_disponiveis[indice]
+            else:
+                return (
+                    f"❌ Opção inválida. Escolha um número de 1 a {len(horarios_disponiveis)}.\n"
+                    "_(💡 Dica: Digite 'voltar' para trocar a data)_"
+                )
+        else:
+            # Fallback: try direct time format (HH:MM)
+            try:
+                datetime.strptime(hora_limpa, "%H:%M")
+                hora_selecionada = hora_limpa
+            except ValueError:
+                return (
+                    "Horário inválido 😕\n"
+                    "Por favor, escolha um número do menu ou digite no formato HH:MM (ex: 14:00)"
+                )
 
-        # Check availability
+        # Race condition check: verify availability one more time
         try:
             data_iso = context.data.get("data")
             servico = context.data.get("servico")
             
             if data_iso and servico:
-                data_hora = datetime.strptime(f"{data_iso} {hora_limpa}", "%Y-%m-%d %H:%M")
+                data_hora = datetime.strptime(f"{data_iso} {hora_selecionada}", "%Y-%m-%d %H:%M")
                 
                 if not horario_disponivel(
                     data_hora_inicio=data_hora,
@@ -147,11 +195,8 @@ class BookingHandler(BaseHandler):
                     return "❌ Esse horário já está ocupado. Por favor, escolha outro."
         except Exception as e:
             logger.error(f"Error checking availability: {e}")
-            # Fail open or closed? Let's warn but proceed or ask again? 
-            # Current logic: allow user to retry if error, but if API fails maybe let them pass?
-            # Safe approach: let them pass but log it. Implementation choice: fail if we are sure it's occupied.
 
-        context.data["hora"] = hora_limpa
+        context.data["hora"] = hora_selecionada
         context.update_state(ConversationState.PROVIDE_NAME)
         return "Perfeito! Qual o seu nome completo?"
 

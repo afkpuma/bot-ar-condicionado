@@ -5,9 +5,9 @@ Serviço de integração com Google Calendar API.
 import os
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date, time
 from zoneinfo import ZoneInfo
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 from core.constants import DURACAO_SERVICO
 from core.config import get_settings
@@ -135,3 +135,40 @@ def criar_evento(
     except Exception as e:
         logger.error(f"ERRO ao criar evento no Google Calendar: {str(e)}")
         raise e
+
+
+def listar_horarios_livres(data: date, servico: str) -> List[str]:
+    """
+    Lista os horários livres para um determinado dia e serviço.
+
+    Args:
+        data: A data para verificar disponibilidade.
+        servico: O tipo de serviço (para cálculo de duração).
+
+    Returns:
+        Lista de strings com horários disponíveis no formato "HH:MM".
+    """
+    horarios_livres: List[str] = []
+
+    # Horário comercial: 08:00 às 18:00
+    hora_inicio = 8
+    hora_fim = 18
+
+    # Se a data for hoje, filtra horários que já passaram
+    agora = datetime.now(TIMEZONE_BR)
+    eh_hoje = data == agora.date()
+
+    for hora in range(hora_inicio, hora_fim):
+        hora_slot = time(hour=hora, minute=0)
+        data_hora_inicio = datetime.combine(data, hora_slot)
+
+        # Se for hoje e o horário já passou, pula
+        if eh_hoje and data_hora_inicio.replace(tzinfo=TIMEZONE_BR) <= agora:
+            continue
+
+        # Verifica disponibilidade usando a função existente
+        if horario_disponivel(data_hora_inicio, servico):
+            horarios_livres.append(f"{hora:02d}:00")
+
+    return horarios_livres
+

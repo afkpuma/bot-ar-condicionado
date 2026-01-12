@@ -80,8 +80,10 @@ class BotManager:
             }
             # Merge context data into payload (flattened for DB)
             # Note: This assumes DB columns match context.data keys. 
-            # Ideally we might want a JSONB 'metadata' column, but let's stick to current schema for now.
-            payload.update(context.data)
+            # Transient keys that shouldn't be persisted:
+            TRANSIENT_KEYS = {"horarios_disponiveis"}
+            filtered_data = {k: v for k, v in context.data.items() if k not in TRANSIENT_KEYS}
+            payload.update(filtered_data)
 
             supabase.table("conversas_whatsapp").upsert(
                 payload, on_conflict="telefone"

@@ -19,12 +19,12 @@ Você é um Engenheiro de Software Sênior atuando como mentor.
 - Use `docstrings` explicativas em todas as funções públicas.
 - Comente blocos complexos explicando a *intenção*, não o óbvio.
 
-### Tratamento de Erros
+### Tratamento de Erros(OBRIGATÓRIO)
 - **NUNCA** use `except Exception` vazio. Capture erros específicos (`ValueError`, `NetworkError`).
 - Logs devem incluir contexto (ex: ID do usuário, etapa do fluxo) para facilitar o debug.
 - Use `core.logger` em vez de `print()`.
 
-### Segurança
+### Segurança(OBRIGATÓRIO)
 - **NUNCA** commite chaves, senhas ou tokens. Use `os.getenv` e carregue de um arquivo `.env`.
 - Crie sempre um `.env.example` para documentar as variáveis necessárias.
 

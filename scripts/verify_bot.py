@@ -28,10 +28,10 @@ def run_simulation():
     response = processar_mensagem_whatsapp(phone, "20/01/2026")
     print(f"[Bot]: {response}")
     
-    # 4. Select Time
-    # Note: validation might fail if slot is taken, but we test the flow
-    print("\n[User]: 14:00")
-    response = processar_mensagem_whatsapp(phone, "14:00")
+    # 4. Select Time (using menu index)
+    # The bot now shows a numbered menu, so we select "1" for the first option
+    print("\n[User]: 1")
+    response = processar_mensagem_whatsapp(phone, "1")
     print(f"[Bot]: {response}")
     
     # 5. Name
