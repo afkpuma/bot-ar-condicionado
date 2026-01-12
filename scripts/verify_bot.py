@@ -43,8 +43,26 @@ def run_simulation():
     print("\n[User]: Rua Teste")
     response = processar_mensagem_whatsapp(phone, "Rua Teste")
     print(f"[Bot]: {response}")
-    
-    # ... shortcut to finish? No, need all steps.
+
+    # 7. Number
+    print("\n[User]: 123")
+    response = processar_mensagem_whatsapp(phone, "123")
+    print(f"[Bot]: {response}")
+
+    # 8. Neighborhood
+    print("\n[User]: Centro")
+    response = processar_mensagem_whatsapp(phone, "Centro")
+    print(f"[Bot]: {response}")
+
+    # 9. City
+    print("\n[User]: São Paulo")
+    response = processar_mensagem_whatsapp(phone, "São Paulo")
+    print(f"[Bot]: {response}")
+
+    # 10. CEP
+    print("\n[User]: 01000-000")
+    response = processar_mensagem_whatsapp(phone, "01000-000")
+    print(f"[Bot]: {response}")
     
 if __name__ == "__main__":
     run_simulation()
