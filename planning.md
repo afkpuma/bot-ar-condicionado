@@ -20,6 +20,8 @@ Este arquivo complementa o `context.md` e o `rules.rpi`. Enquanto eles definem "
 | **2026-01** | **UX Fluida (Planejado)** | Mudar de "Input Rígido" para "Seleção Guiada" (ex: listar horários em vez de pedir input manual) para reduzir fricção. | 🚧 Em Andamento |
 | **2026-01** | **Handlers Stateless para Listas** | Não persistir listas complexas (horários/agendamentos) no contexto do banco para evitar erros de schema. Re-buscar dados na ação. | ✅ Implementado |
 | **2026-01** | **TRANSIENT_KEYS no Manager** | Dupla proteção: mesmo que um handler salve dados transientes, o `BotManager.save_context()` filtra automaticamente antes do upsert. | ✅ Implementado |
+| **2026-01** | **Consistência de Menu e Reset** | Padronizar menus de erro com emojis e permitir reset via saudações (excluindo 'voltar') para recuperar fluxos perdidos. | ✅ Implementado |
+| **2026-01** | **Menu Explícito (Cancelar)** | Tornar a opção 'Cancelar' visível (Opção 4) para melhorar a descoberta e UX, evitando comandos ocultos. | ✅ Implementado |
 
 ### 📝 Detalhamento: Stateless Pattern
 
@@ -93,8 +95,7 @@ O foco atual é transformar a prova de conceito (PoC) em um produto com UX robus
   - **Tarefa:** Criar handler dedicado para o fluxo de cancelamento.
   - **Lógica:** Listar agendamentos -> Confirmar (rebuscando dados) -> Deletar no Calendar -> Atualizar no Supabase.
 
-  # Adicione esta linha na tabela "Decisões Arquiteturais (Decision Log)" logo após a última entrada:
-| **2026-01** | **Menu Explícito (Cancelar)** | Tornar a opção 'Cancelar' visível (Opção 4) para melhorar a descoberta e UX, evitando comandos ocultos. | ✅ Implementado |
+
 
 # Atualize a seção "Fase 4: Gestão Completa (Cancelamento)" marcando os itens como feitos e adicionando a melhoria de UX:
 - [x] **4.1. Busca de Agendamentos**

@@ -40,8 +40,12 @@ class CancellationHandler(BaseHandler):
         if context.state == ConversationState.SELECT_CANCEL_ID:
             return True
 
-        # Ou se escolheu a opção 4 no menu principal
-        if message_lower == "4" and context.state in [ConversationState.START, ConversationState.FINISHED]:
+        # Ou se escolheu a opção 4 no menu principal (START, FINISHED ou SELECT_SERVICE)
+        if message_lower == "4" and context.state in [
+            ConversationState.START, 
+            ConversationState.FINISHED,
+            ConversationState.SELECT_SERVICE  # Permite "4" também no menu de serviços
+        ]:
             return True
             
         return False

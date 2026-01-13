@@ -18,5 +18,5 @@ DURACAO_SERVICO: Dict[str, int] = {
 TIMEOUT_SESSAO = 5
 
 # Palavras-chave para saudação e ajuda
-SAUDACOES = ["oi", "olá", "ola", "opa", "bom dia", "boa tarde", "boa noite", "ajuda", "voltar"]
+SAUDACOES = ["oi", "olá", "ola", "opa", "bom dia", "boa tarde", "boa noite", "ajuda"]
 PALAVRAS_RECOMECAR = ["menu", "recomeçar", "recomecar"]

@@ -10,6 +10,10 @@ class InfoHandler(BaseHandler):
         # Check for global reset commands
         if any(cmd in msg_lower for cmd in PALAVRAS_RECOMECAR):
             return True
+
+        # NOVA LÓGICA: Se for saudação, também reseta!
+        if any(saudacao in msg_lower for saudacao in SAUDACOES):
+            return True
             
         # Check for start state
         if context.state == ConversationState.START:
@@ -19,7 +23,6 @@ class InfoHandler(BaseHandler):
         if context.state == ConversationState.FINISHED:
              return True
              
-        # Fallback if unhandled?
         return False
 
     def handle(self, context: UserContext, message: str) -> str:

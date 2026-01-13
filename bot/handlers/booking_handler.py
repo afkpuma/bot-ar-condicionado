@@ -122,12 +122,14 @@ class BookingHandler(BaseHandler):
         elif message == "3" or "instala" in message:
             servico = "instalacao"
         else:
+            # CORREÇÃO: Menu atualizado com emojis e Opção 4
             return (
                 "Não entendi 😅\n"
-                "Por favor, escolha uma opção:\n"
-                "1. Limpeza\n"
-                "2. Manutenção\n"
-                "3. Instalação"
+                "Por favor, escolha uma opção válida:\n\n"
+                "1️⃣ Limpeza\n"
+                "2️⃣ Manutenção\n"
+                "3️⃣ Instalação\n"
+                "4️⃣ Meus Agendamentos / Cancelar"
             )
 
         context.data["servico"] = servico
