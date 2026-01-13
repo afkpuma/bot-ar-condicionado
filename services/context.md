@@ -9,6 +9,9 @@ Responsável pela comunicação com a API do Google Calendar.
 - Funções:
     - `horario_disponivel(...)`: Verifica conflitos de horário.
     - `criar_evento(...)`: Insere o evento na agenda.
+    - Gerencia eventos no Google Calendar.
+    - **Feature:** Gera link automático do Google Maps na descrição do evento com base no endereço do cliente.
+    - Usa `ZoneInfo` para garantir horários corretos.
 
 ### `supabase_client.py`
 Cliente inicializado do Supabase.
@@ -17,6 +20,7 @@ Cliente inicializado do Supabase.
 ### `agendamentos_service.py`
 Camada de persistência para a tabela principal de agendamentos.
 - Função `salvar_agendamento(...)`: Formata e insere dados na tabela `agendamentos`.
+- Salva dados do agendamento e ID do evento do Calendar.
 
 ## Adaptadores
 

@@ -95,18 +95,6 @@ O foco atual é transformar a prova de conceito (PoC) em um produto com UX robus
   - **Tarefa:** Criar handler dedicado para o fluxo de cancelamento.
   - **Lógica:** Listar agendamentos -> Confirmar (rebuscando dados) -> Deletar no Calendar -> Atualizar no Supabase.
 
-
-
-# Atualize a seção "Fase 4: Gestão Completa (Cancelamento)" marcando os itens como feitos e adicionando a melhoria de UX:
-- [x] **4.1. Busca de Agendamentos**
-  - **Arquivo:** `services/agendamentos_service.py`
-  - **Tarefa:** `buscar_agendamentos_futuros(telefone)`.
-
-- [x] **4.2. CancellationHandler Stateless**
-  - **Arquivo:** `bot/handlers/cancellation_handler.py`
-  - **Tarefa:** Criar handler dedicado para o fluxo de cancelamento.
-  - **Lógica:** Listar agendamentos -> Confirmar (rebuscando dados) -> Deletar no Calendar -> Atualizar no Supabase.
-
 - [x] **4.3. UX: Cancelamento no Menu Principal**
   - **Arquivo:** `bot/handlers/info_handler.py` e `cancellation_handler.py`
   - **Tarefa:** Adicionar opção "4. Meus Agendamentos / Cancelar" no menu inicial.

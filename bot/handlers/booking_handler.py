@@ -1,4 +1,9 @@
 from datetime import datetime
+from zoneinfo import ZoneInfo
+import re
+
+SAO_PAULO_TZ = ZoneInfo("America/Sao_Paulo")
+CEP_REGEX = re.compile(r"^\d{5}-?\d{3}$")
 from ..states import ConversationState
 from ..context import UserContext
 from .base import BaseHandler
@@ -8,30 +13,7 @@ from core.logger import get_logger
 
 logger = get_logger(__name__)
 
-PREVIOUS_STATE = {
-    ConversationState.SELECT_DATE: ConversationState.SELECT_SERVICE,
-    ConversationState.SELECT_TIME: ConversationState.SELECT_DATE,
-    ConversationState.PROVIDE_NAME: ConversationState.SELECT_TIME,
-    ConversationState.PROVIDE_STREET: ConversationState.PROVIDE_NAME,
-    ConversationState.PROVIDE_NUMBER: ConversationState.PROVIDE_STREET,
-    ConversationState.PROVIDE_NEIGHBORHOOD: ConversationState.PROVIDE_NUMBER,
-    ConversationState.PROVIDE_CITY: ConversationState.PROVIDE_NEIGHBORHOOD,
-    ConversationState.PROVIDE_ZIP: ConversationState.PROVIDE_CITY,
-    ConversationState.CONFIRMATION: ConversationState.PROVIDE_ZIP,
-}
-
-REPROMPT_MAP = {
-    ConversationState.SELECT_SERVICE: "Qual serviço você deseja? 1. Limpeza, 2. Manutenção, 3. Instalação",
-    ConversationState.SELECT_DATE: "Qual data você prefere? (DD/MM/AAAA)\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
-    ConversationState.SELECT_TIME: "Qual número você prefere?\n\n_(💡 Dica: Digite 'voltar' para trocar a data)_",
-    ConversationState.PROVIDE_NAME: "Qual o seu nome completo?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
-    ConversationState.PROVIDE_STREET: "Qual o nome da sua rua?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
-    ConversationState.PROVIDE_NUMBER: "Qual o número?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
-    ConversationState.PROVIDE_NEIGHBORHOOD: "Qual o bairro?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
-    ConversationState.PROVIDE_CITY: "Qual a sua cidade?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
-    ConversationState.PROVIDE_ZIP: "E para finalizar, qual o seu CEP?\n\n_(💡 Dica: Digite 'voltar' para corrigir a etapa anterior)_",
-    ConversationState.CONFIRMATION: "Confira os dados acima. Está tudo correto? (Sim/Não)",
-}
+# Navegação simplificada: "menu" reinicia, não há mais "voltar" passo a passo
 
 class BookingHandler(BaseHandler):
     def should_handle(self, context: UserContext, message: str) -> bool:
@@ -49,13 +31,12 @@ class BookingHandler(BaseHandler):
         ]
 
     def handle(self, context: UserContext, message: str) -> str:
+        """Processa a mensagem do usuário de acordo com o estado atual."""
         state = context.state
         message_cleaned = message.strip()
         message_lower = message_cleaned.lower()
 
-        if message_lower in ["voltar", "corrigir", "anterior", "back"]:
-            return self._handle_back(context)
-
+        # Navegação simplificada: não há mais "voltar", apenas "menu" para reiniciar
         if state == ConversationState.SELECT_SERVICE:
             return self._handle_service(context, message_lower)
         elif state == ConversationState.SELECT_DATE:
@@ -63,7 +44,7 @@ class BookingHandler(BaseHandler):
         elif state == ConversationState.SELECT_TIME:
             return self._handle_time(context, message_cleaned)
         elif state == ConversationState.PROVIDE_NAME:
-            return self._handle_generic_input(context, message_cleaned, "nome", ConversationState.PROVIDE_STREET, "Perfeito! Agora, qual o nome da sua rua?")
+            return self._handle_name(context, message_cleaned)
         elif state == ConversationState.PROVIDE_STREET:
             return self._handle_generic_input(context, message_cleaned, "rua", ConversationState.PROVIDE_NUMBER, "Qual o número?")
         elif state == ConversationState.PROVIDE_NUMBER:
@@ -77,7 +58,7 @@ class BookingHandler(BaseHandler):
         elif state == ConversationState.CONFIRMATION:
             return self._handle_confirmation(context, message_lower)
         
-        return "Desculpe, não entendi. Tente novamente."
+        return "Desculpe, não entendi. Digite *menu* para recomeçar."
 
     def _handle_back(self, context: UserContext) -> str:
         current_state = context.state
@@ -134,7 +115,10 @@ class BookingHandler(BaseHandler):
 
         context.data["servico"] = servico
         context.update_state(ConversationState.SELECT_DATE)
-        return f"Perfeito! Você escolheu {servico.capitalize()}. Qual data você prefere? (DD/MM/AAAA)"
+        return (
+            f"Perfeito! Você escolheu {servico.capitalize()}. Qual data você prefere? (DD/MM/AAAA)\n\n"
+            "_(💡 Caso queira mudar algo, escreva 'menu' para reiniciar a conversa)_"
+        )
 
     def _handle_date(self, context: UserContext, message: str) -> str:
         data_limpa = message.replace(",", "/").replace(".", "/").replace("-", "/")
@@ -143,7 +127,7 @@ class BookingHandler(BaseHandler):
             data_iso = data_obj.strftime("%Y-%m-%d")
             
             # Validation: ensure date is not in the past
-            if data_obj.date() < datetime.now().date():
+            if data_obj.date() < datetime.now(SAO_PAULO_TZ).date():
                 return "📅 Essa data já passou. Por favor, escolha uma data futura."
 
             context.data["data"] = data_iso
@@ -168,7 +152,7 @@ class BookingHandler(BaseHandler):
                 f"Encontrei estes horários para {data_formatada}:\n\n"
                 f"{menu}\n\n"
                 "Qual número você prefere?\n"
-                "_(💡 Dica: Digite 'voltar' para trocar a data)_"
+                "_(💡 Caso queira mudar algo, escreva 'menu' para reiniciar a conversa)_"
             )
         except ValueError:
             return "Data inválida 😕\nPor favor, use o formato Dia/Mês/Ano (ex: 15/01/2026)"
@@ -186,6 +170,13 @@ class BookingHandler(BaseHandler):
                 horarios_disponiveis = listar_horarios_livres(data_obj, servico)
                 context.data["horarios_disponiveis"] = horarios_disponiveis
         
+        # Helper: remonta o menu de horários para reexibição
+        def _remontar_menu() -> str:
+            menu_linhas = [self._formatar_opcao_menu(i + 1, h) for i, h in enumerate(horarios_disponiveis)]
+            return "\n".join(menu_linhas)
+        
+        DICA_REINICIAR = "_(💡 Caso queira mudar algo, escreva 'menu' para reiniciar a conversa)_"
+        
         # Try to interpret as menu index first
         if hora_limpa.isdigit():
             indice = int(hora_limpa) - 1  # Convert to 0-indexed
@@ -193,9 +184,9 @@ class BookingHandler(BaseHandler):
                 hora_selecionada = horarios_disponiveis[indice]
             else:
                 return (
-                    "❌ Opção inválida. Escolha um número do menu (ex: 1) "
-                    "ou digite o horário diretamente (ex: 14:00).\n"
-                    "_(💡 Dica: Digite 'voltar' para trocar a data)_"
+                    f"❌ Opção inválida. Escolha um número de 1 a {len(horarios_disponiveis)}.\n\n"
+                    f"{_remontar_menu()}\n\n"
+                    f"{DICA_REINICIAR}"
                 )
         else:
             # Fallback: try direct time format (HH:MM)
@@ -205,7 +196,9 @@ class BookingHandler(BaseHandler):
             except ValueError:
                 return (
                     "Horário inválido 😕\n"
-                    "Por favor, escolha um número do menu ou digite no formato HH:MM (ex: 14:00)"
+                    "Por favor, escolha um número do menu ou digite no formato HH:MM (ex: 14:00)\n\n"
+                    f"{_remontar_menu()}\n\n"
+                    f"{DICA_REINICIAR}"
                 )
 
         # Race condition check: verify availability one more time
@@ -226,7 +219,36 @@ class BookingHandler(BaseHandler):
 
         context.data["hora"] = hora_selecionada
         context.update_state(ConversationState.PROVIDE_NAME)
-        return "Perfeito! Qual o seu nome completo?"
+        return (
+            "Perfeito! Qual o seu nome completo?\n\n"
+            "_(💡 Caso queira mudar algo, escreva 'menu' para reiniciar a conversa)_"
+        )
+
+    def _handle_name(self, context: UserContext, message: str) -> str:
+        """Valida e salva o nome do cliente."""
+        # Remove espaços extras e verifica se contém letras
+        nome = message.strip()
+        
+        # Validação: nome não pode ser apenas números
+        if nome.replace(" ", "").isdigit():
+            return (
+                "❌ Nome inválido. Por favor, digite seu nome completo (sem números).\n\n"
+                "_(💡 Caso queira mudar algo, escreva 'menu' para reiniciar a conversa)_"
+            )
+        
+        # Validação: nome deve ter pelo menos 2 caracteres
+        if len(nome) < 2:
+            return (
+                "❌ Nome muito curto. Por favor, digite seu nome completo.\n\n"
+                "_(💡 Caso queira mudar algo, escreva 'menu' para reiniciar a conversa)_"
+            )
+        
+        context.data["nome"] = nome
+        context.update_state(ConversationState.PROVIDE_STREET)
+        return (
+            "Perfeito! Agora, qual o nome da sua rua?\n\n"
+            "_(💡 Caso queira mudar algo, escreva 'menu' para reiniciar a conversa)_"
+        )
 
     def _handle_generic_input(self, context: UserContext, message: str, key: str, next_state: ConversationState, response_text: str) -> str:
         context.data[key] = message
@@ -235,7 +257,15 @@ class BookingHandler(BaseHandler):
 
     def _handle_zip_and_review(self, context: UserContext, message: str) -> str:
         """Saves the ZIP code and displays a summary for user confirmation."""
-        context.data["cep"] = message
+        # Validação de CEP: formato 00000-000 ou 00000000
+        cep_normalizado = message.strip().replace(" ", "")
+        if not CEP_REGEX.match(cep_normalizado):
+            return (
+                "❌ CEP inválido. Por favor, digite no formato *00000-000* ou *00000000*.\n"
+                "_(💡 Dica: Digite 'voltar' para corrigir a cidade)_"
+            )
+        
+        context.data["cep"] = message.strip()
         logger.info(f"CEP received for {context.phone}, preparing confirmation summary")
         
         # Build the full address string

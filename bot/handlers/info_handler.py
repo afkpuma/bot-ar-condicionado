@@ -5,7 +5,7 @@ from core.constants import SAUDACOES, PALAVRAS_RECOMECAR
 
 class InfoHandler(BaseHandler):
     def should_handle(self, context: UserContext, message: str) -> bool:
-        msg_lower = message.lower()
+        msg_lower = message.lower().strip()
         
         # Check for global reset commands
         if any(cmd in msg_lower for cmd in PALAVRAS_RECOMECAR):
@@ -14,10 +14,15 @@ class InfoHandler(BaseHandler):
         # NOVA LÓGICA: Se for saudação, também reseta!
         if any(saudacao in msg_lower for saudacao in SAUDACOES):
             return True
-            
-        # Check for start state
+        
+        # CORREÇÃO: Se já é um comando de serviço válido no START, transiciona e deixa BookingHandler tratar
+        comandos_servico = ["1", "2", "3", "limpeza", "manutencao", "manutenção", "instalacao", "instalação"]
         if context.state == ConversationState.START:
-            return True
+            # Verifica se o input é um comando de serviço
+            if msg_lower in comandos_servico or any(cmd in msg_lower for cmd in ["limpeza", "manuten", "instala"]):
+                context.update_state(ConversationState.SELECT_SERVICE)
+                return False  # Passa para o BookingHandler
+            return True  # Input genérico, mostra menu
         
         # Check for finished state (restarting)
         if context.state == ConversationState.FINISHED:
