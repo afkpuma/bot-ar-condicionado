@@ -104,17 +104,31 @@ def criar_evento(
     inicio = data_hora_inicio.replace(tzinfo=TIMEZONE_BR)
     fim = inicio + timedelta(hours=duracao)
 
+    # Monta endereço completo para o link do Google Maps
+    endereco = cliente.get('endereco', {})
+    endereco_completo = (
+        f"{endereco.get('rua', '')}, {endereco.get('numero', '')}, "
+        f"{endereco.get('bairro', '')} - {endereco.get('cidade', '')}, "
+        f"CEP {endereco.get('cep', '')}"
+    )
+    
+    # URL encode para o Maps
+    from urllib.parse import quote
+    maps_url = f"https://www.google.com/maps/search/?api=1&query={quote(endereco_completo)}"
+
     evento: Dict[str, Any] = {
         "summary": f"{servico.capitalize()} - {cliente['nome']}",
-        "description": f"""
-    Cliente: {cliente['nome']}
-    Telefone: {cliente['telefone']}
+        "description": f"""Cliente: {cliente['nome']}
+Telefone: {cliente['telefone']}
 
-    Endereço:
-    {cliente['endereco']['rua']}, {cliente['endereco']['numero']}
-    {cliente['endereco']['bairro']} - {cliente['endereco']['cidade']}
-    CEP: {cliente['endereco']['cep']}
-    """,
+Endereço:
+{endereco.get('rua', 'N/A')}, {endereco.get('numero', 'S/N')}
+{endereco.get('bairro', 'N/A')} - {endereco.get('cidade', 'N/A')}
+CEP: {endereco.get('cep', 'N/A')}
+
+📍 Ver no Mapa:
+{maps_url}
+""",
         "start": {
             "dateTime": inicio.strftime("%Y-%m-%dT%H:%M:%S"),
             "timeZone": "America/Sao_Paulo",
