@@ -84,22 +84,12 @@ def receber_mensagem(
 def agendar(request: AgendamentoRequest) -> Dict[str, Any]:
     """
     Cria um agendamento diretamente via API.
+    
+    A validação de data/hora é feita automaticamente pelo Pydantic.
+    Se data ou hora forem inválidos, FastAPI retorna 422 automaticamente.
     """
-    # Tenta converter a data e hora para datetime
-    try:
-        data_hora = datetime.strptime(
-            f"{request.data} {request.hora}",
-            "%Y-%m-%d %H:%M"
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=400,
-            detail={
-                "erro": "Data ou hora em formato inválido",
-                "formato_esperado": "data: YYYY-MM-DD, hora: HH:MM",
-                "detalhes": str(e)
-            }
-        )
+    # data_hora já vem validado pelo model_validator do Pydantic
+    data_hora = request.data_hora
 
     # Verifica se o horário está disponível no Google Calendar
     # Obs: calendar_id é pego automaticamente do settings pelo serviço

@@ -1,10 +1,4 @@
-"""
-Modelos Pydantic para o Bot de Ar-Condicionado.
-
-Este arquivo contém os modelos de dados usados em todo o sistema.
-"""
-
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from datetime import datetime
 from typing import Optional
 
@@ -89,6 +83,7 @@ class AgendamentoRequest(BaseModel):
     Modelo de requisição de agendamento.
     
     Usado no endpoint POST /agendar.
+    Valida automaticamente que data e hora formam um datetime válido.
     """
     
     servico: str = Field(
@@ -116,6 +111,34 @@ class AgendamentoRequest(BaseModel):
         ..., 
         description="Dados do cliente"
     )
+    
+    # Campo interno calculado após validação
+    _data_hora: datetime = None
+    
+    @model_validator(mode='after')
+    def validar_data_hora(self) -> 'AgendamentoRequest':
+        """
+        Valida que data + hora formam um datetime válido.
+        
+        Raises:
+            ValueError: Se a combinação de data e hora for inválida.
+        """
+        try:
+            self._data_hora = datetime.strptime(
+                f"{self.data} {self.hora}",
+                "%Y-%m-%d %H:%M"
+            )
+        except ValueError as e:
+            raise ValueError(
+                f"Data ou hora em formato inválido. "
+                f"Formato esperado: data=YYYY-MM-DD, hora=HH:MM. Detalhe: {e}"
+            )
+        return self
+    
+    @property
+    def data_hora(self) -> datetime:
+        """Retorna o datetime calculado a partir de data + hora."""
+        return self._data_hora
 
 
 class MensagemWhatsApp(BaseModel):
