@@ -1,64 +1,52 @@
 import sys
 import os
+import random
 
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from services.whatsapp_service import processar_mensagem_whatsapp
-import random
 
 def test_navigation():
     phone = f"55119{random.randint(10000000, 99999999)}"
-    print(f"--- Testing Navigation for {phone} ---")
+    print(f"--- Testing New Navigation (Menu Reset) for {phone} ---")
     
     # 1. Start -> Select Service
     print("\n[User]: menu")
-    print(f"[Bot]: {processar_mensagem_whatsapp(phone, 'menu')}")
+    resp = processar_mensagem_whatsapp(phone, 'menu')
+    print(f"[Bot]: {resp}")
     
     # 2. Select Service -> Select Date
     print("\n[User]: 1")
-    print(f"[Bot]: {processar_mensagem_whatsapp(phone, '1')}")
+    resp = processar_mensagem_whatsapp(phone, '1')
+    print(f"[Bot]: {resp}")
     
-    # 3. Select Date -> Select Time
-    print("\n[User]: 20/01/2026")
-    msg_date = processar_mensagem_whatsapp(phone, '20/01/2026')
-    print(f"[Bot]: {msg_date}")
+    if "Qual data" in resp:
+        print("✅ SUCCESS: Advanced to Date selection.")
     
-    # 4. TEST BACK: FROM TIME TO DATE
-    print("\n[User]: voltar")
-    msg_back = processar_mensagem_whatsapp(phone, 'voltar')
-    print(f"[Bot]: {msg_back}")
+    # 3. Test "Menu" Reset from middle of flow (Interrupting Date Selection)
+    print("\n[User]: menu (Testing Reset)")
+    resp = processar_mensagem_whatsapp(phone, 'menu')
+    print(f"[Bot]: {resp}")
     
-    if "Qual data você prefere" in msg_back and "Dica: Digite 'voltar'" in msg_back:
-        print("✅ SUCCESS: Bot went back to Date Selection with Tip.")
+    # Check if we are back to Main Menu
+    if "1" in resp and "Limpeza" in resp and "4" in resp:
+        print("✅ SUCCESS: 'menu' command reset the flow to Main Menu correctly.")
     else:
-        print(f"❌ FAIL: Bot did not go back correctly or missing tip. Got: {msg_back}")
-        
-    # 5. TEST BACK: FROM DATE TO SERVICE
-    # First we need to go back to Date (we are already there)
-    # Now go back further
-    print("\n[User]: voltar")
-    msg_back_2 = processar_mensagem_whatsapp(phone, 'voltar')
-    print(f"[Bot]: {msg_back_2}")
+        print(f"❌ FAIL: 'menu' did not reset flow. Got: {resp}")
+
+    # 4. Test Invalid Input Behavior
+    # Select service again to get to date input
+    processar_mensagem_whatsapp(phone, '1')
     
-    if "Qual serviço você deseja" in msg_back_2:
-         print("✅ SUCCESS: Bot went back to Service Selection.")
-    else:
-         print(f"❌ FAIL: Bot did not go back to Service. Got: {msg_back_2}")
-         
-    # 6. TEST INVALID BACK (From Start)
-    # We are at Service. Go back -> Start/Menu? No, Service IS the first step after menu?
-    # Actually state is SELECT_SERVICE. PREVIOUS is None or START?
-    # PREVIOUS_STATE for SELECT_SERVICE is not defined in map (it's the first step).
-    # So it should say "Não é possível voltar..."
-    print("\n[User]: voltar")
-    msg_back_3 = processar_mensagem_whatsapp(phone, 'voltar')
-    print(f"[Bot]: {msg_back_3}")
+    print("\n[User]: batata (Testing Invalid Input Hint)")
+    resp = processar_mensagem_whatsapp(phone, 'batata')
+    print(f"[Bot]: {resp}")
     
-    if "Não é possível voltar" in msg_back_3 or "menu" in msg_back_3:
-        print("✅ SUCCESS: Bot handled invalid back correctly.")
+    if "menu" in resp.lower() and "reiniciar" in resp.lower():
+         print("✅ SUCCESS: Error message contains the 'menu' hint.")
     else:
-        print(f"❌ FAIL: Bot handled invalid back incorrectly. Got: {msg_back_3}")
+         print(f"❌ FAIL: Error message missing hint. Got: {resp}")
 
 if __name__ == "__main__":
     test_navigation()

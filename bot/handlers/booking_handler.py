@@ -155,7 +155,11 @@ class BookingHandler(BaseHandler):
                 "_(💡 Caso queira mudar algo, escreva 'menu' para reiniciar a conversa)_"
             )
         except ValueError:
-            return "Data inválida 😕\nPor favor, use o formato Dia/Mês/Ano (ex: 15/01/2026)"
+            return (
+                "Data inválida 😕\n"
+                "Por favor, use o formato Dia/Mês/Ano (ex: 15/01/2026)\n\n"
+                "_(💡 Caso queira mudar algo, escreva 'menu' para reiniciar a conversa)_"
+            )
 
     def _handle_time(self, context: UserContext, message: str) -> str:
         hora_limpa = message.replace(" ", "")
