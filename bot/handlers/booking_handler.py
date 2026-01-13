@@ -60,21 +60,6 @@ class BookingHandler(BaseHandler):
         
         return "Desculpe, não entendi. Digite *menu* para recomeçar."
 
-    def _handle_back(self, context: UserContext) -> str:
-        current_state = context.state
-        previous = PREVIOUS_STATE.get(current_state)
-
-        if not previous:
-            return "Não é possível voltar a partir daqui. Digite 'menu' para reiniciar."
-        
-        # Using context.update_state as requested to ensure updated_at is refreshed
-        context.update_state(previous)
-        
-        # Clean current state data? Maybe not strictly necessary if overwriting, but good for cleanliness.
-        # However, keeping it might be a feature (preserving filled info). Let's keep it simple.
-        
-        return f"🔙 Voltando...\n{REPROMPT_MAP.get(previous, 'O que você deseja?')}"
-
     def _formatar_opcao_menu(self, indice: int, texto: str) -> str:
         """
         Formata uma opção de menu com emoji ou numeração simples.
@@ -96,6 +81,19 @@ class BookingHandler(BaseHandler):
         return f"{indice}. {texto}"
 
     def _handle_service(self, context: UserContext, message: str) -> str:
+        """
+        Processa a seleção do tipo de serviço.
+
+        Args:
+            context: Contexto do usuário com dados da sessão.
+            message: Mensagem do usuário já em lowercase. Aceita:
+                     - "1" ou "limpeza" para serviço de limpeza
+                     - "2" ou "manuten" para manutenção
+                     - "3" ou "instala" para instalação
+
+        Returns:
+            Mensagem de sucesso com próxima pergunta (data) ou mensagem de erro.
+        """
         if message == "1" or "limpeza" in message:
             servico = "limpeza"
         elif message == "2" or "manuten" in message:
@@ -121,6 +119,22 @@ class BookingHandler(BaseHandler):
         )
 
     def _handle_date(self, context: UserContext, message: str) -> str:
+        """
+        Processa a seleção de data do agendamento.
+
+        Args:
+            context: Contexto do usuário com dados da sessão.
+            message: Data no formato DD/MM/AAAA (aceita separadores: / , . -).
+                     Exemplo: "15/01/2026", "15.01.2026", "15-01-2026"
+
+        Returns:
+            Menu de horários disponíveis ou mensagem de erro se data inválida/passada.
+
+        Side Effects:
+            - Salva data em formato ISO (YYYY-MM-DD) em context.data["data"]
+            - Salva lista de horários em context.data["horarios_disponiveis"]
+            - Atualiza estado para SELECT_TIME se bem-sucedido
+        """
         data_limpa = message.replace(",", "/").replace(".", "/").replace("-", "/")
         try:
             data_obj = datetime.strptime(data_limpa, "%d/%m/%Y")
@@ -162,6 +176,25 @@ class BookingHandler(BaseHandler):
             )
 
     def _handle_time(self, context: UserContext, message: str) -> str:
+        """
+        Processa a seleção de horário do agendamento.
+
+        Args:
+            context: Contexto do usuário. Espera context.data conter:
+                     - "data": data selecionada em ISO (YYYY-MM-DD)
+                     - "servico": tipo de serviço selecionado
+                     - "horarios_disponiveis": lista de horários (opcional, recalculado se vazio)
+            message: Pode ser:
+                     - Número do menu (1, 2, 3...) referente ao índice do horário
+                     - Horário direto no formato HH:MM (ex: "14:00")
+
+        Returns:
+            Próxima pergunta (nome) ou mensagem de erro se horário inválido/ocupado.
+
+        Side Effects:
+            - Salva horário em context.data["hora"]
+            - Atualiza estado para PROVIDE_NAME se bem-sucedido
+        """
         hora_limpa = message.replace(" ", "")
         horarios_disponiveis = context.data.get("horarios_disponiveis", [])
         
@@ -255,6 +288,19 @@ class BookingHandler(BaseHandler):
         )
 
     def _handle_generic_input(self, context: UserContext, message: str, key: str, next_state: ConversationState, response_text: str) -> str:
+        """
+        Handler genérico para campos simples de texto (endereço).
+
+        Args:
+            context: Contexto do usuário.
+            message: Texto livre do usuário (rua, número, bairro, cidade).
+            key: Chave para salvar em context.data (ex: "rua", "numero").
+            next_state: Próximo estado da conversação.
+            response_text: Mensagem a exibir após salvar.
+
+        Returns:
+            response_text passado como argumento.
+        """
         context.data[key] = message
         context.update_state(next_state)
         return response_text

@@ -8,6 +8,7 @@ incluindo validação e persistência no banco de dados.
 from datetime import datetime
 from typing import Dict, Any, List
 from services.supabase_client import supabase
+from postgrest.exceptions import APIError
 
 from core.constants import DURACAO_SERVICO
 
@@ -110,10 +111,15 @@ def buscar_agendamentos_futuros(telefone: str) -> List[Dict[str, Any]]:
             .execute()
         
         return response.data or []
+    except APIError as e:
+        from core.logger import get_logger
+        logger = get_logger(__name__)
+        logger.error(f"Erro de API Supabase ao buscar agendamentos para {telefone}: {e}")
+        return []
     except Exception as e:
         from core.logger import get_logger
         logger = get_logger(__name__)
-        logger.error(f"Erro ao buscar agendamentos futuros para {telefone}: {e}")
+        logger.critical(f"Erro inesperado ao buscar agendamentos para {telefone}: {e}")
         return []
 
 
@@ -138,8 +144,13 @@ def marcar_agendamento_como_cancelado(agendamento_id: int) -> bool:
             .execute()
         
         return len(response.data) > 0
+    except APIError as e:
+        from core.logger import get_logger
+        logger = get_logger(__name__)
+        logger.error(f"Erro de API Supabase ao cancelar agendamento {agendamento_id}: {e}")
+        return False
     except Exception as e:
         from core.logger import get_logger
         logger = get_logger(__name__)
-        logger.error(f"Erro ao marcar agendamento {agendamento_id} como cancelado: {e}")
+        logger.critical(f"Erro inesperado ao cancelar agendamento {agendamento_id}: {e}")
         return False

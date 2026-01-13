@@ -5,6 +5,7 @@ Serviço de integração com Google Calendar API.
 import os
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from datetime import datetime, timedelta, date, time
 from zoneinfo import ZoneInfo
 from typing import Dict, Any, Optional, List
@@ -79,9 +80,13 @@ def horario_disponivel(
         ).execute()
 
         return len(eventos.get("items", [])) == 0
+    except HttpError as e:
+        logger.error(f"Erro de API do Google Calendar ao listar eventos: {e}")
+        # Em caso de erro de API, assumir ocupado para segurança
+        return False
     except Exception as e:
-        logger.error(f"Erro ao listar eventos: {e}")
-        return True
+        logger.critical(f"Erro inesperado ao verificar disponibilidade: {e}")
+        raise
 
 def criar_evento(
     data_hora_inicio: datetime,
@@ -146,9 +151,12 @@ CEP: {endereco.get('cep', 'N/A')}
         ).execute()
         logger.info(f"Evento criado: {evento_criado.get('htmlLink')}")
         return evento_criado
+    except HttpError as e:
+        logger.error(f"Erro de API do Google Calendar ao criar evento: {e}")
+        raise
     except Exception as e:
-        logger.error(f"ERRO ao criar evento no Google Calendar: {str(e)}")
-        raise e
+        logger.critical(f"Erro inesperado ao criar evento: {e}")
+        raise
 
 
 def listar_horarios_livres(data: date, servico: str) -> List[str]:
@@ -216,13 +224,15 @@ def cancelar_evento(event_id: str, calendar_id: Optional[str] = None) -> bool:
         ).execute()
         logger.info(f"Evento {event_id} cancelado com sucesso no Google Calendar.")
         return True
-    except Exception as e:
+    except HttpError as e:
         # HttpError 404 = evento já foi deletado, o que é aceitável
-        error_str = str(e)
-        if "404" in error_str or "Not Found" in error_str:
+        if e.resp.status == 404:
             logger.warning(f"Evento {event_id} não encontrado no Calendar (já deletado?).")
             return True
         
-        # Outros erros (rede, permissão, etc.)
-        logger.error(f"Erro ao cancelar evento {event_id} no Calendar: {e}")
-        return False  # Indica falha, mas chamador decide se continua
+        # Outros erros de API (permissão, quota, etc.)
+        logger.error(f"Erro de API do Google Calendar ao cancelar evento {event_id}: {e}")
+        return False
+    except Exception as e:
+        logger.critical(f"Erro inesperado ao cancelar evento {event_id}: {e}")
+        return False
