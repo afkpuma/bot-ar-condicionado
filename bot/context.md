@@ -29,9 +29,14 @@ Interface abstrata que define:
 ### `info_handler.py`: `InfoHandler`
 Cuida de comandos informativos e globais.
 - Comandos: `menu`, `oi`, `ajuda`.
-- Responsável por resetar o fluxo para o início.
+- Responsável por resetar o fluxo para o início e exibir o menu principal (Opções 1-4).
 
 ### `booking_handler.py`: `BookingHandler`
 Gerencia o fluxo complexo de agendamento (Máquina de Estados).
 - Coleta dados passo-a-passo: Nome -> Endereço -> Data -> Confirmação.
 - Interage com `services` para verificar agenda e salvar dados.
+
+### `cancellation_handler.py`: `CancellationHandler`
+Gerencia o fluxo de cancelamento e visualização de agendamentos.
+- Gatilhos: Comando "cancelar", opção "4" no menu principal ou estado `SELECT_CANCEL_ID`.
+- Lógica Stateless: Re-busca agendamentos no momento da ação para garantir consistência.

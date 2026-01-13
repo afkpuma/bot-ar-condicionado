@@ -28,6 +28,7 @@ class CancellationHandler(BaseHandler):
         Retorna True se:
         - O usuário digitou 'cancelar' (qualquer estado)
         - O estado atual é SELECT_CANCEL_ID (selecionando qual cancelar)
+        - O usuário digitou '4' no menu principal (START/FINISHED)
         """
         message_lower = message.lower().strip()
         
@@ -36,14 +37,21 @@ class CancellationHandler(BaseHandler):
             return True
         
         # Ou se já está no fluxo de cancelamento
-        return context.state == ConversationState.SELECT_CANCEL_ID
+        if context.state == ConversationState.SELECT_CANCEL_ID:
+            return True
+
+        # Ou se escolheu a opção 4 no menu principal
+        if message_lower == "4" and context.state in [ConversationState.START, ConversationState.FINISHED]:
+            return True
+            
+        return False
     
     def handle(self, context: UserContext, message: str) -> str:
         """Processa a mensagem e retorna a resposta apropriada."""
         message_lower = message.lower().strip()
         
-        # Se o usuário digitou "cancelar", inicia o fluxo
-        if "cancelar" in message_lower:
+        # Se o usuário digitou "cancelar" OU escolheu a opção 4
+        if "cancelar" in message_lower or message_lower == "4":
             return self._iniciar_cancelamento(context)
         
         # Se já está selecionando o ID para cancelar

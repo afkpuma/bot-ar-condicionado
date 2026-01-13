@@ -33,5 +33,6 @@ class InfoHandler(BaseHandler):
             "Qual serviço você deseja? Digite o número ou o nome:\n\n"
             "1️⃣ Limpeza\n"
             "2️⃣ Manutenção\n"
-            "3️⃣ Instalação"
+            "3️⃣ Instalação\n"
+            "4️⃣ Meus Agendamentos / Cancelar"
         )
