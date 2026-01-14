@@ -1,0 +1,84 @@
+services:
+  # --------------------------------------------------------------------
+  # 1. NOSSO BOT (Python + FastAPI)
+  # --------------------------------------------------------------------
+  bot:
+    container_name: bot_ar_condicionado
+    build: .
+    restart: always
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env            # O Bot continua lendo Supabase e Google daqui!
+    volumes:
+      - ./credentials:/app/credentials
+    depends_on:
+      - evolution
+    networks:
+      - rede_interna
+
+  # --------------------------------------------------------------------
+  # 2. EVOLUTION API (Gateway de WhatsApp)
+  # --------------------------------------------------------------------
+  evolution:
+    image: atendai/evolution-api:v2.1.1
+    container_name: evolution_api
+    restart: always
+    ports:
+      - "8081:8080"
+    environment:
+      # CONFIGURAÇÃO GERAL
+      - SERVER_URL=http://admin.boteletroclima.cloud:8081  # <--- SEU DOMÍNIO AQUI
+      - DOCKER_ENV=true
+      
+      # BANCO DE DADOS (Conecta no container 'postgres' abaixo)
+      - DATABASE_ENABLED=true
+      - DATABASE_PROVIDER=postgresql
+      # Atenção: user:senha@nome_do_servico:porta/nome_banco
+      - DATABASE_CONNECTION_URI=postgresql:/admin_zap:BatataQuente2026@postgres:5432/evolution
+      
+      # OUTROS
+      - RABBITMQ_ENABLED=false
+      - SQAL_DATABASE_URI=postgresql://admin_zap:BatataQuente2026@postgres:5432/evolution
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - rede_interna
+
+  # --------------------------------------------------------------------
+  # 3. BANCO DE DADOS (Exclusivo da Evolution)
+  # --------------------------------------------------------------------
+  postgres:
+    image: postgres:15-alpine
+    container_name: evolution_postgres
+    restart: always
+    environment:
+      - POSTGRES_USER=admin_zap                 # Usuário criado
+      - POSTGRES_PASSWORD=BatataQuente2026  # Senha criada (IGUAL ACIMA)
+      - POSTGRES_DB=evolution
+    volumes:
+      - evolution_db_data:/var/lib/postgresql/data
+    networks:
+      - rede_interna
+
+  # --------------------------------------------------------------------
+  # 4. REDIS (Cache da Evolution)
+  # --------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: evolution_redis
+    restart: always
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - evolution_redis_data:/data
+    networks:
+      - rede_interna
+
+volumes:
+  evolution_db_data:
+  evolution_redis_data:
+
+networks:
+  rede_interna:
+    driver: bridge
