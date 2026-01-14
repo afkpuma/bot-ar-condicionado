@@ -28,6 +28,7 @@ services:
       - "8081:8080"
     environment:
       # CONFIGURAÇÃO GERAL
+      - AUTHENTICATION_API_KEY=BatataQuente2026
       - SERVER_URL=http://admin.boteletroclima.cloud:8081  # <--- SEU DOMÍNIO AQUI
       - DOCKER_ENV=true
       
@@ -35,7 +36,7 @@ services:
       - DATABASE_ENABLED=true
       - DATABASE_PROVIDER=postgresql
       # Atenção: user:senha@nome_do_servico:porta/nome_banco
-      - DATABASE_CONNECTION_URI=postgresql:/admin_zap:BatataQuente2026@postgres:5432/evolution
+      - DATABASE_CONNECTION_URI=postgresql://admin_zap:BatataQuente2026@postgres:5432/evolution
       
       # OUTROS
       - RABBITMQ_ENABLED=false
