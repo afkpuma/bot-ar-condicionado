@@ -1,6 +1,6 @@
-from fastapi import FastAPI, Query, HTTPException
+from fastapi import FastAPI, Query, HTTPException, Header
 from datetime import datetime
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from services.google_calendar_service import horario_disponivel, criar_evento
 from services.agendamentos_service import salvar_agendamento
@@ -42,11 +42,26 @@ def home() -> Dict[str, str]:
 @app.post("/whatsapp")
 def receber_mensagem(
     dados: MensagemWhatsApp,
-    simulacao: bool = Query(False, description="Se true, retorna dados de teste")
+    simulacao: bool = Query(False, description="Se true, retorna dados de teste"),
+    apikey: Optional[str] = Header(None, description="Chave de API para autenticação")
 ) -> Dict[str, Any]:
     """
     Recebe uma mensagem do WhatsApp e retorna a resposta do bot.
+    
+    A autenticação via apikey é obrigatória quando EVOLUTION_API_KEY está configurada.
     """
+    # =========================
+    # VALIDAÇÃO DE SEGURANÇA
+    # =========================
+    expected_key = settings.EVOLUTION_API_KEY
+    if expected_key:  # Se a chave está configurada, valida obrigatoriamente
+        if not apikey or apikey != expected_key.get_secret_value():
+            logger.warning(f"Acesso não autorizado ao webhook de: {dados.telefone}")
+            raise HTTPException(
+                status_code=403,
+                detail={"erro": "Acesso negado. Chave de API inválida."}
+            )
+    
     try:
         # O BotManager agora cuida de tudo internamente (Contexto, Erros, Logs)
         resposta = processar_mensagem_whatsapp(

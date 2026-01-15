@@ -1,18 +1,38 @@
+import re
 from ..states import ConversationState
 from ..context import UserContext
 from .base import BaseHandler
 from core.constants import SAUDACOES, PALAVRAS_RECOMECAR
 
 class InfoHandler(BaseHandler):
+    """Handler responsável por detectar saudações e comandos de reset globais."""
+    
+    def _is_word_match(self, msg: str, words: list[str]) -> bool:
+        """
+        Verifica se alguma das palavras está presente na mensagem como palavra isolada.
+        Usa word boundaries (\b) para evitar matches parciais.
+        
+        Exemplos:
+            - "Oi" em "Oi, tudo bem?" -> True
+            - "oi" em "bairro" -> False (oi é substring, não palavra)
+        """
+        msg_lower = msg.lower().strip()
+        for word in words:
+            # \b = word boundary: garante que é uma palavra isolada
+            pattern = rf'\b{re.escape(word)}\b'
+            if re.search(pattern, msg_lower):
+                return True
+        return False
+    
     def should_handle(self, context: UserContext, message: str) -> bool:
         msg_lower = message.lower().strip()
         
-        # Check for global reset commands
-        if any(cmd in msg_lower for cmd in PALAVRAS_RECOMECAR):
+        # Check for global reset commands (menu, recomeçar)
+        if self._is_word_match(message, PALAVRAS_RECOMECAR):
             return True
 
-        # NOVA LÓGICA: Se for saudação, também reseta!
-        if any(saudacao in msg_lower for saudacao in SAUDACOES):
+        # Check for greetings (oi, olá, etc) - now using word boundaries!
+        if self._is_word_match(message, SAUDACOES):
             return True
         
         # CORREÇÃO: Se já é um comando de serviço válido no START, transiciona e deixa BookingHandler tratar
