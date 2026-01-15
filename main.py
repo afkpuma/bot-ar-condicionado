@@ -28,11 +28,23 @@ app = FastAPI(
 # DEPENDÊNCIAS DE SEGURANÇA
 # =========================
 
-async def verificar_api_key(apikey: Optional[str] = Header(None)):
-    """Valida a chave de segurança do Webhook."""
+async def verificar_api_key(
+    apikey_header: Optional[str] = Header(None, alias="apikey"),
+    apikey_query: Optional[str] = Query(None, alias="apikey")
+):
+    """
+    Valida a chave de segurança do Webhook.
+    Aceita via Header (padrão) OU via URL (query param 'apikey').
+    Isso resolve o problema da Evolution não enviar o header corretamente.
+    """
     if settings.EVOLUTION_API_KEY:
-        if not apikey or apikey != settings.EVOLUTION_API_KEY.get_secret_value():
-            logger.warning("⛔ Acesso negado: API Key inválida no Webhook")
+        expected_key = settings.EVOLUTION_API_KEY.get_secret_value()
+        
+        # Verifica se veio pelo Header OU pela URL
+        received_key = apikey_header or apikey_query
+        
+        if not received_key or received_key != expected_key:
+            logger.warning("⛔ Acesso negado: API Key inválida ou ausente no Webhook")
             raise HTTPException(status_code=403, detail="Acesso negado")
 
 
