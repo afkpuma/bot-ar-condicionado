@@ -46,14 +46,9 @@ def enviar_resposta_evolution(telefone: str, mensagem: str) -> bool:
     
     payload = {
         "number": telefone,
-        "options": {
-            "delay": 1200,        # Simula "digitando..." (1.2s)
-            "presence": "composing",
-            "linkPreview": False
-        },
-        "textMessage": {
-            "text": mensagem
-        }
+        "text": mensagem,
+        "delay": 1200,
+        "linkPreview": False
     }
 
     try:
