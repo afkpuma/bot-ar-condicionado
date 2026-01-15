@@ -37,6 +37,10 @@ services:
       - DATABASE_PROVIDER=postgresql
       # Atenção: user:senha@nome_do_servico:porta/nome_banco
       - DATABASE_CONNECTION_URI=postgresql://admin_zap:BatataQuente2026@postgres:5432/evolution
+
+      # 👇 ADICIONE ESTAS DUAS LINHAS AQUI:
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://redis:6379/0
       
       # OUTROS
       - RABBITMQ_ENABLED=false
