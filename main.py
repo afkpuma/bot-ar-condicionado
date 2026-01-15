@@ -1,11 +1,11 @@
-from fastapi import FastAPI, Query, HTTPException, Header
+from fastapi import FastAPI, Query, HTTPException, Header, Request, Depends
 from datetime import datetime
 from typing import Dict, Any, Optional
 
 from services.google_calendar_service import horario_disponivel, criar_evento
 from services.agendamentos_service import salvar_agendamento
 from services.whatsapp_service import processar_mensagem_whatsapp
-from models import AgendamentoRequest, MensagemWhatsApp
+from models import AgendamentoRequest
 from core.config import get_settings
 from core.logger import get_logger
 
@@ -24,6 +24,18 @@ app = FastAPI(
 )
 
 
+# =========================
+# DEPENDÊNCIAS DE SEGURANÇA
+# =========================
+
+async def verificar_api_key(apikey: Optional[str] = Header(None)):
+    """Valida a chave de segurança do Webhook."""
+    if settings.EVOLUTION_API_KEY:
+        if not apikey or apikey != settings.EVOLUTION_API_KEY.get_secret_value():
+            logger.warning("⛔ Acesso negado: API Key inválida no Webhook")
+            raise HTTPException(status_code=403, detail="Acesso negado")
+
+
 @app.get("/")
 def home() -> Dict[str, str]:
     """
@@ -36,59 +48,76 @@ def home() -> Dict[str, str]:
 
 
 # =========================
-# WHATSAPP (REAL + SIMULAÇÃO)
+# WHATSAPP (HÍBRIDO: Teste + Evolution)
 # =========================
 
-@app.post("/whatsapp")
-def receber_mensagem(
-    dados: MensagemWhatsApp,
-    simulacao: bool = Query(False, description="Se true, retorna dados de teste"),
-    apikey: Optional[str] = Header(None, description="Chave de API para autenticação")
+@app.post("/whatsapp", dependencies=[Depends(verificar_api_key)])
+async def receber_mensagem(
+    request: Request,
+    simulacao: bool = Query(False, description="Se true, retorna dados de teste")
 ) -> Dict[str, Any]:
     """
-    Recebe uma mensagem do WhatsApp e retorna a resposta do bot.
+    Endpoint Híbrido para receber mensagens do WhatsApp.
     
-    A autenticação via apikey é obrigatória quando EVOLUTION_API_KEY está configurada.
+    1. Aceita JSON simples (Testes Manuais): {"telefone": "...", "mensagem": "..."}
+    2. Aceita Webhook Complexo (Evolution API): {"data": {"key": {...}, "message": {...}}}
     """
-    # =========================
-    # VALIDAÇÃO DE SEGURANÇA
-    # =========================
-    expected_key = settings.EVOLUTION_API_KEY
-    if expected_key:  # Se a chave está configurada, valida obrigatoriamente
-        if not apikey or apikey != expected_key.get_secret_value():
-            logger.warning(f"Acesso não autorizado ao webhook de: {dados.telefone}")
-            raise HTTPException(
-                status_code=403,
-                detail={"erro": "Acesso negado. Chave de API inválida."}
-            )
-    
     try:
-        # O BotManager agora cuida de tudo internamente (Contexto, Erros, Logs)
-        resposta = processar_mensagem_whatsapp(
-            telefone=dados.telefone,
-            mensagem=dados.mensagem
-        )
+        body = await request.json()
+        
+        # === MODO 1: Teste Manual (JSON Simples) ===
+        if "telefone" in body and "mensagem" in body:
+            telefone = body["telefone"]
+            mensagem = body["mensagem"]
+            logger.info(f"📩 Teste Manual recebido de {telefone}: {mensagem}")
+            
+            resposta = processar_mensagem_whatsapp(telefone, mensagem)
+            
+            if simulacao:
+                return {
+                    "simulacao": True,
+                    "telefone": telefone,
+                    "mensagem_enviada": mensagem,
+                    "resposta_bot": resposta
+                }
+            return {"status": "processado", "resposta": resposta}
+
+        # === MODO 2: Webhook Evolution API (Parser) ===
+        data = body.get("data", {})
+        key = data.get("key", {})
+        
+        # Ignora mensagens enviadas pelo próprio bot (Loop Infinito Prevention)
+        if key.get("fromMe", False):
+            logger.debug("🔄 Ignorando mensagem fromMe (próprio bot)")
+            return {"status": "ignored", "reason": "from_me"}
+            
+        # Extrai telefone (remove sufixo @s.whatsapp.net)
+        remote_jid = key.get("remoteJid", "")
+        telefone = remote_jid.split("@")[0]
+        
+        # Extrai mensagem de texto (Conversation ou ExtendedTextMessage)
+        message_content = data.get("message", {})
+        mensagem = message_content.get("conversation")
+        
+        if not mensagem:
+            extended = message_content.get("extendedTextMessage", {})
+            mensagem = extended.get("text")
+            
+        if not telefone or not mensagem:
+            logger.debug(f"📭 Webhook sem texto extraível: {body.get('event', 'unknown')}")
+            return {"status": "ignored", "reason": "no_text_found"}
+            
+        logger.info(f"📩 Webhook Evolution recebido de {telefone}: {mensagem}")
+        
+        # Processa e dispara o envio da resposta
+        processar_mensagem_whatsapp(telefone, mensagem)
+        
+        return {"status": "processado"}
+
     except Exception as e:
-        logger.error(f"Erro crítico no endpoint /whatsapp: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail={"erro": "Erro interno do servidor"}
-        )
-
-    # Retorna formato de simulação para testes
-    if simulacao:
-        return {
-            "simulacao": True,
-            "telefone": dados.telefone,
-            "mensagem_enviada": dados.mensagem,
-            "resposta_bot": resposta
-        }
-
-    # Retorna formato normal
-    return {
-        "telefone": dados.telefone,
-        "resposta": resposta
-    }
+        logger.error(f"🔥 Erro crítico no webhook: {e}")
+        # Retornamos 200 para evitar que a Evolution fique reenviando a msg com erro
+        return {"status": "error", "detail": str(e)}
 
 
 # =========================
