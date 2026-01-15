@@ -1,3 +1,27 @@
+version: '3.9'
+
+# --------------------------------------------------------------------
+# NETWORK CONFIGURATION
+# --------------------------------------------------------------------
+networks:
+  rede_interna:
+    driver: bridge
+    name: rede_interna
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+# --------------------------------------------------------------------
+# VOLUME CONFIGURATION
+# --------------------------------------------------------------------
+volumes:
+  evolution_db_data:
+    name: evolution_db_data
+  evolution_redis_data:
+    name: evolution_redis_data
+  evolution_instances:
+    name: evolution_instances
+
 services:
   # --------------------------------------------------------------------
   # 1. NOSSO BOT (Python + FastAPI)
@@ -5,70 +29,109 @@ services:
   bot:
     container_name: bot_ar_condicionado
     build: .
-    restart: always
+    restart: unless-stopped
     ports:
       - "8000:8000"
     env_file:
-      - .env            # O Bot continua lendo Supabase e Google daqui!
+      - .env
     volumes:
       - ./credentials:/app/credentials
     depends_on:
-      - evolution
+      evolution:
+        condition: service_started
     networks:
       - rede_interna
+    environment:
+      - EVOLUTION_API_URL=http://evolution_api:8080
+      - LOG_LEVEL=INFO
 
   # --------------------------------------------------------------------
-  # 2. EVOLUTION API (Gateway de WhatsApp)
+  # 2. EVOLUTION API (WhatsApp Gateway)
   # --------------------------------------------------------------------
   evolution:
-    image: atendai/evolution-api:v2.1.1
+    image: atendai/evolution-api:v2.3.6
     container_name: evolution_api
     restart: always
     ports:
       - "8081:8080"
-    environment:
-      # CONFIGURAÇÃO GERAL
-      - AUTHENTICATION_API_KEY=BatataQuente2026
-      - SERVER_URL=http://admin.boteletroclima.cloud:8081  # <--- SEU DOMÍNIO AQUI
-      - DOCKER_ENV=true
-      
-      # BANCO DE DADOS (Conecta no container 'postgres' abaixo)
-      - DATABASE_ENABLED=true
-      - DATABASE_PROVIDER=postgresql
-      # Atenção: user:senha@nome_do_servico:porta/nome_banco
-      - DATABASE_CONNECTION_URI=postgresql://admin_zap:BatataQuente2026@postgres:5432/evolution
-
-      # 👇 ADICIONE ESTAS DUAS LINHAS AQUI:
-      - CACHE_REDIS_ENABLED=true
-      - CACHE_REDIS_URI=redis://redis:6379/0
-      
-      # OUTROS
-      - RABBITMQ_ENABLED=false
-      - SQAL_DATABASE_URI=postgresql://admin_zap:BatataQuente2026@postgres:5432/evolution
-    depends_on:
-      - postgres
-      - redis
+    expose:
+      - "8080"
     networks:
       - rede_interna
+    volumes:
+      - evolution_instances:/evolution/instances
+    
+    # HEALTHCHECK CORRIGIDO
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    environment:
+      - SERVER_TYPE=http
+      - SERVER_PORT=8080
+      - SERVER_URL=http://admin.boteletroclima.cloud:8081
+      - DOCKER_ENV=true
+      - AUTHENTICATION_TYPE=apikey
+      - AUTHENTICATION_API_KEY=BatataQuente2026
+      - AUTHENTICATION_EXPOSE_IN_FETCH_INSTANCES=true
+      - DATABASE_ENABLED=true
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://admin_zap:BatataQuente2026@postgres:5432/evolution
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
+      - DATABASE_SAVE_MESSAGE_UPDATE=true
+      - DATABASE_SAVE_DATA_CONTACTS=true
+      - DATABASE_SAVE_DATA_CHATS=true
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://redis:6379/0
+      - CACHE_REDIS_PREFIX_KEY=evolution
+      - CACHE_REDIS_SAVE_INSTANCES=false
+      - CACHE_LOCAL_ENABLED=false
+      - CONFIG_SESSION_PHONE_VERSION=2.3000.1023204200
+      - CONFIG_SESSION_PHONE_CLIENT=Evolution
+      - CONFIG_SESSION_PHONE_NAME=Chrome
+      - WEBSOCKET_ENABLED=true
+      - WEBSOCKET_GLOBAL_EVENTS=true
+      - LOG_LEVEL=INFO
+      - LOG_BAILEYS=error
+      - DEL_INSTANCE=false
 
   # --------------------------------------------------------------------
-  # 3. BANCO DE DADOS (Exclusivo da Evolution)
+  # 3. DATABASE (PostgreSQL)
   # --------------------------------------------------------------------
   postgres:
     image: postgres:15-alpine
     container_name: evolution_postgres
     restart: always
+    ports:
+      - "127.0.0.1:5432:5432"
     environment:
-      - POSTGRES_USER=admin_zap                 # Usuário criado
-      - POSTGRES_PASSWORD=BatataQuente2026  # Senha criada (IGUAL ACIMA)
+      - POSTGRES_USER=admin_zap
+      - POSTGRES_PASSWORD=BatataQuente2026
       - POSTGRES_DB=evolution
     volumes:
       - evolution_db_data:/var/lib/postgresql/data
     networks:
       - rede_interna
+    
+    # HEALTHCHECK CORRIGIDO
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin_zap -d evolution"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   # --------------------------------------------------------------------
-  # 4. REDIS (Cache da Evolution)
+  # 4. REDIS (Cache)
   # --------------------------------------------------------------------
   redis:
     image: redis:7-alpine
@@ -79,11 +142,10 @@ services:
       - evolution_redis_data:/data
     networks:
       - rede_interna
-
-volumes:
-  evolution_db_data:
-  evolution_redis_data:
-
-networks:
-  rede_interna:
-    driver: bridge
+    
+    # HEALTHCHECK CORRIGIDO
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
