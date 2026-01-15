@@ -49,7 +49,7 @@ services:
   # 2. EVOLUTION API (WhatsApp Gateway)
   # --------------------------------------------------------------------
   evolution:
-    image: atendai/evolution-api:v2.3.6
+    image: evoapicloud/evolution-api:latest
     container_name: evolution_api
     restart: always
     ports:
