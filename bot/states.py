@@ -1,24 +1,26 @@
 from enum import StrEnum
 
 class ConversationState(StrEnum):
+    """
+    Estados da conversa do bot na arquitetura V2 Hybrid.
+    
+    O fluxo de booking completo (data, hora, endereço) foi migrado
+    para o Frontend Streamlit. O bot agora gerencia apenas:
+    - Seleção inicial de serviço
+    - Redirecionamento para o formulário web
+    - Fluxo de cancelamento via WhatsApp
+    """
     # Initial
     START = "START"
     
-    # Booking Flow
+    # Service Selection (redireciona para Frontend)
     SELECT_SERVICE = "SELECT_SERVICE"
-    SELECT_DATE = "SELECT_DATE"
-    SELECT_TIME = "SELECT_TIME"
     
-    PROVIDE_NAME = "PROVIDE_NAME"
-    PROVIDE_STREET = "PROVIDE_STREET"
-    PROVIDE_NUMBER = "PROVIDE_NUMBER"
-    PROVIDE_NEIGHBORHOOD = "PROVIDE_NEIGHBORHOOD"
-    PROVIDE_CITY = "PROVIDE_CITY"
-    PROVIDE_ZIP = "PROVIDE_ZIP"
+    # Aguardando preenchimento do formulário web
+    WAITING_FORM = "WAITING_FORM"
     
-    # Cancellation Flow
+    # Cancellation Flow (mantido no WhatsApp)
     SELECT_CANCEL_ID = "SELECT_CANCEL_ID"
     
     # Final
-    CONFIRMATION = "CONFIRMATION"
     FINISHED = "FINISHED"
